@@ -1,0 +1,108 @@
+{
+  "doctype": "DocType",
+  "name": "Moniepoint Transaction",
+  "module": "Moniepoint POS",
+  "issingle": 0,
+  "autoname": "hash",
+  "engine": "InnoDB",
+  "field_order": [
+    "invoice",
+    "terminal",
+    "merchant_reference",
+    "request_amount",
+    "amount_units",
+    "payment_method",
+    "state",
+    "processing_status",
+    "response_code",
+    "actual_amount",
+    "last_checked"
+  ],
+  "fields": [
+    {
+      "fieldname": "invoice",
+      "label": "POS Invoice",
+      "fieldtype": "Link",
+      "options": "POS Invoice",
+      "reqd": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "terminal",
+      "label": "Terminal",
+      "fieldtype": "Link",
+      "options": "Moniepoint Terminal",
+      "reqd": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "merchant_reference",
+      "label": "Merchant reference",
+      "fieldtype": "Data",
+      "unique": 1,
+      "reqd": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "request_amount",
+      "label": "API amount",
+      "fieldtype": "Int",
+      "read_only": 1
+    },
+    {
+      "fieldname": "amount_units",
+      "label": "Amount units",
+      "fieldtype": "Data",
+      "read_only": 1
+    },
+    {
+      "fieldname": "payment_method",
+      "label": "Payment method",
+      "fieldtype": "Data",
+      "read_only": 1
+    },
+    {
+      "fieldname": "state",
+      "label": "Request state",
+      "fieldtype": "Select",
+      "options": "Created\nAccepted\nUnknown\nRejected",
+      "default": "Created",
+      "read_only": 1
+    },
+    {
+      "fieldname": "processing_status",
+      "label": "Provider processing status",
+      "fieldtype": "Data",
+      "read_only": 1
+    },
+    {
+      "fieldname": "response_code",
+      "label": "Provider response code",
+      "fieldtype": "Data",
+      "read_only": 1
+    },
+    {
+      "fieldname": "actual_amount",
+      "label": "Provider actual amount",
+      "fieldtype": "Int",
+      "read_only": 1
+    },
+    {
+      "fieldname": "last_checked",
+      "label": "Last checked",
+      "fieldtype": "Datetime",
+      "read_only": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    }
+  ],
+  "track_changes": 1
+}
+

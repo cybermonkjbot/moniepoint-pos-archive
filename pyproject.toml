@@ -1,0 +1,11 @@
+[build-system]
+requires = ["flit_core>=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "moniepoint_pos"
+version = "0.1.0"
+description = "Moniepoint terminal payment requests for ERPNext"
+requires-python = ">=3.14,<3.15"
+dependencies = []
+

@@ -1,0 +1,53 @@
+{
+  "doctype": "DocType",
+  "name": "Moniepoint Settings",
+  "module": "Moniepoint POS",
+  "issingle": 1,
+  "engine": "InnoDB",
+  "field_order": [
+    "enabled",
+    "api_key",
+    "amount_units",
+    "contract_confirmed",
+    "webhook_secret"
+  ],
+  "fields": [
+    {
+      "fieldname": "enabled",
+      "label": "Enabled",
+      "fieldtype": "Check"
+    },
+    {
+      "fieldname": "api_key",
+      "label": "API key",
+      "fieldtype": "Password"
+    },
+    {
+      "fieldname": "amount_units",
+      "label": "Confirmed API amount units",
+      "fieldtype": "Select",
+      "options": "\nKobo\nNaira"
+    },
+    {
+      "fieldname": "contract_confirmed",
+      "label": "Amount units confirmed with Moniepoint",
+      "fieldtype": "Check"
+    },
+    {
+      "fieldname": "webhook_secret",
+      "label": "Webhook signing secret",
+      "fieldtype": "Password"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    }
+  ],
+  "track_changes": 1
+}
+

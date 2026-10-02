@@ -1,0 +1,70 @@
+{
+  "doctype": "DocType",
+  "name": "Moniepoint Terminal",
+  "module": "Moniepoint POS",
+  "issingle": 0,
+  "autoname": "hash",
+  "engine": "InnoDB",
+  "field_order": [
+    "terminal_serial",
+    "company",
+    "pos_profile",
+    "mode_of_payment",
+    "enabled",
+    "payment_method"
+  ],
+  "fields": [
+    {
+      "fieldname": "terminal_serial",
+      "label": "Terminal serial",
+      "fieldtype": "Data",
+      "reqd": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "company",
+      "label": "Company",
+      "fieldtype": "Link",
+      "options": "Company",
+      "reqd": 1
+    },
+    {
+      "fieldname": "pos_profile",
+      "label": "POS Profile",
+      "fieldtype": "Link",
+      "options": "POS Profile",
+      "reqd": 1
+    },
+    {
+      "fieldname": "mode_of_payment",
+      "label": "Mode of Payment",
+      "fieldtype": "Link",
+      "options": "Mode of Payment",
+      "reqd": 1
+    },
+    {
+      "fieldname": "enabled",
+      "label": "Enabled",
+      "fieldtype": "Check"
+    },
+    {
+      "fieldname": "payment_method",
+      "label": "Payment method",
+      "fieldtype": "Select",
+      "options": "CARD_PURCHASE\nPOS_TRANSFER\nANY",
+      "default": "CARD_PURCHASE",
+      "reqd": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    }
+  ],
+  "track_changes": 1
+}
+
