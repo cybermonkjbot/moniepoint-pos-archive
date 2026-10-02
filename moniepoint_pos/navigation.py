@@ -48,7 +48,7 @@ def apply_icons():
 def configure():
     frappe.only_for("System Manager")
     definitions = {
-        "K3LS Shop": [("POS", "point-of-sale"), ("Repairs", "Issue"),
+        "K3LS Shop": [("POS", "point-of-sale"), ("Repairs", "K3LS Repair" if frappe.db.exists("DocType", "K3LS Repair") else "Issue"),
             ("Sales history", "POS Invoice"), ("Stock", "Item"), ("Customers", "Customer")],
         "K3LS Owner": [("Payments", "Payment Entry"), ("Suppliers", "Supplier"),
             ("Purchases", "Purchase Invoice"), ("Accounts", "Account"),

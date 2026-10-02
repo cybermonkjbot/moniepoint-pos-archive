@@ -19,10 +19,10 @@ def _operator():
 def _settings():
     settings = frappe.get_single("Moniepoint Settings")
     if not settings.enabled:
-        frappe.throw("Moniepoint integration is disabled.")
+        frappe.throw("Moniepoint is turned off.")
     key = settings.get_password("api_key", raise_exception=False)
     if not key:
-        frappe.throw("Configure the Moniepoint API key first.")
+        frappe.throw("Add the Moniepoint connection key first.")
     return settings, {"Authorization": f"Bearer {key}", "Accept": "application/json"}
 
 
@@ -48,7 +48,7 @@ def request_payment(invoice, terminal):
     _operator()
     settings, headers = _settings()
     if not settings.contract_confirmed or settings.amount_units not in ("Kobo", "Naira"):
-        frappe.throw("Confirm the API amount units with Moniepoint before requesting payment.")
+        frappe.throw("Confirm the payment amount format with Moniepoint first.")
     doc = frappe.get_doc("POS Invoice", invoice)
     doc.check_permission("write")
     # Serialize requests for this invoice, including concurrent operator clicks.
@@ -56,22 +56,22 @@ def request_payment(invoice, terminal):
     device = frappe.get_doc("Moniepoint Terminal", terminal)
     device.check_permission("read")
     if doc.docstatus != 0 or doc.is_return or doc.currency != "NGN":
-        frappe.throw("Use a saved, non-return NGN draft POS Invoice.")
+        frappe.throw("Save a new sale in NGN before requesting payment. Returns cannot use terminal payments.")
     if not device.enabled or device.company != doc.company or device.pos_profile != doc.pos_profile:
-        frappe.throw("This terminal is not enabled for the invoice company and POS Profile.")
+        frappe.throw("This terminal is not set up for this shop.")
     existing = frappe.db.get_value("Moniepoint Transaction", {"invoice": doc.name}, "name")
     if existing:
         frappe.throw(f"A payment request already exists: {existing}. Check its result before another charge.")
     rows = [row for row in doc.payments if row.mode_of_payment == device.mode_of_payment and row.amount > 0]
     if len(rows) != 1:
-        frappe.throw("Set one positive payment row for the terminal's Mode of Payment.")
+        frappe.throw("Add one payment above 0 using this terminal's payment method.")
     amount = Decimal(str(rows[0].amount))
     total = Decimal(str(doc.rounded_total or doc.grand_total))
     if amount > total or amount <= 0:
-        frappe.throw("Terminal payment must be positive and no greater than the invoice total.")
+        frappe.throw("The terminal payment must be above 0 and no more than the sale total.")
     scaled = amount * (100 if settings.amount_units == "Kobo" else 1)
     if scaled != scaled.to_integral_value() or scaled < 100 or scaled > 9223372036854775807:
-        frappe.throw("Amount is outside the API integer limits for the configured units.")
+        frappe.throw("This amount is outside Moniepoint's payment limits.")
     reference = f"erp-{uuid4().hex}"
     transaction = frappe.get_doc({
         "doctype": "Moniepoint Transaction", "invoice": doc.name, "terminal": device.name,

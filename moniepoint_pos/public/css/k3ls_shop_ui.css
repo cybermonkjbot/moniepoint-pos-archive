@@ -1,0 +1,55 @@
+/* K3LS presentation only. Audit records and access permissions remain unchanged. */
+.k3ls-shop .navbar-breadcrumbs,
+.k3ls-shop .title-area > .more-button,
+.k3ls-simple-form .form-footer,
+.k3ls-simple-form .form-viewers,
+.k3ls-simple-form .form-assignments,
+.k3ls-simple-form .form-shared,
+.k3ls-simple-form .form-tags,
+.k3ls-simple-form .followed-by-section,
+.k3ls-simple-form .sidebar-meta-details,
+.k3ls-simple-form .sidebar-menu,
+.k3ls-simple-form .liked-by,
+.k3ls-simple-form .sidebar-standard-image {
+    display: none !important;
+}
+
+.k3ls-master-form .custom-actions,
+.k3ls-master-form .custom-mobile-actions,
+.k3ls-simple-list .custom-actions,
+.k3ls-simple-list .custom-mobile-actions {
+    display: none !important;
+}
+
+.k3ls-shop .k3ls-page-title {
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-lg);
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-color);
+}
+
+.k3ls-shop .title-area {
+    min-width: 0;
+}
+
+.k3ls-master-form textarea[data-fieldname="supplier_details"],
+.k3ls-master-form textarea[data-fieldname="customer_details"] {
+    height: 120px !important;
+}
+
+.k3ls-simple-form .sidebar-image-section:has(.sidebar-image[src=""]),
+.k3ls-simple-form .sidebar-image-section:has(.sidebar-image:not([src])) {
+    display: none !important;
+}
+
+@media (max-width: 767px) {
+    .k3ls-shop .k3ls-page-title {
+        max-width: 42vw;
+        font-size: var(--text-base);
+    }
+}

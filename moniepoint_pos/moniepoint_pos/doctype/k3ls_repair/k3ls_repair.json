@@ -1,0 +1,385 @@
+{
+  "doctype": "DocType",
+  "name": "K3LS Repair",
+  "module": "Moniepoint POS",
+  "autoname": "K3LS-REP-.#####",
+  "engine": "InnoDB",
+  "track_changes": 1,
+  "allow_rename": 0,
+  "title_field": "device",
+  "search_fields": "customer,customer_phone,device,serial_no",
+  "sort_field": "creation",
+  "sort_order": "DESC",
+  "field_order": [
+    "intake_tab",
+    "customer_section",
+    "customer",
+    "customer_phone",
+    "customer_address",
+    "customer_column",
+    "received_at",
+    "received_by",
+    "relationship",
+    "device_section",
+    "device",
+    "item",
+    "serial_no",
+    "device_column",
+    "configuration",
+    "colour",
+    "accessories_received",
+    "fault_section",
+    "fault_reported",
+    "arrival_condition",
+    "intake_evidence",
+    "progress_tab",
+    "status",
+    "assigned_to",
+    "external_repairer",
+    "progress_column",
+    "expected_ready_date",
+    "fixed_at",
+    "collected_at",
+    "work_section",
+    "diagnosis",
+    "work_done",
+    "final_condition",
+    "follow_up_date",
+    "notes",
+    "billing_tab",
+    "currency",
+    "customer_charge",
+    "quote_approved",
+    "approval_reference",
+    "billing_column",
+    "parts_cost",
+    "labour_cost",
+    "other_cost",
+    "total_cost",
+    "invoice_section",
+    "sales_invoice",
+    "payment_due_date",
+    "agreement_reference"
+  ],
+  "fields": [
+    {
+      "fieldname": "intake_tab",
+      "fieldtype": "Tab Break",
+      "label": "Intake"
+    },
+    {
+      "fieldname": "customer_section",
+      "fieldtype": "Section Break",
+      "label": "Customer"
+    },
+    {
+      "fieldname": "customer",
+      "fieldtype": "Link",
+      "label": "Customer",
+      "options": "Customer",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "customer_phone",
+      "fieldtype": "Data",
+      "label": "Phone",
+      "reqd": 1
+    },
+    {
+      "fieldname": "customer_address",
+      "fieldtype": "Small Text",
+      "label": "Address / location",
+      "reqd": 1
+    },
+    {
+      "fieldname": "customer_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "received_at",
+      "fieldtype": "Datetime",
+      "label": "Received",
+      "default": "Now",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "received_by",
+      "fieldtype": "Link",
+      "label": "Received by",
+      "options": "User",
+      "default": "__user",
+      "read_only": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "relationship",
+      "fieldtype": "Select",
+      "label": "Customer relationship",
+      "options": "New\nReturning",
+      "reqd": 1
+    },
+    {
+      "fieldname": "device_section",
+      "fieldtype": "Section Break",
+      "label": "Device"
+    },
+    {
+      "fieldname": "device",
+      "fieldtype": "Data",
+      "label": "Device / model",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "item",
+      "fieldtype": "Link",
+      "label": "Shop Item ID",
+      "options": "Item"
+    },
+    {
+      "fieldname": "serial_no",
+      "fieldtype": "Data",
+      "label": "Serial / IMEI"
+    },
+    {
+      "fieldname": "device_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "configuration",
+      "fieldtype": "Small Text",
+      "label": "Configuration"
+    },
+    {
+      "fieldname": "colour",
+      "fieldtype": "Data",
+      "label": "Colour"
+    },
+    {
+      "fieldname": "accessories_received",
+      "fieldtype": "Small Text",
+      "label": "Accessories received"
+    },
+    {
+      "fieldname": "fault_section",
+      "fieldtype": "Section Break",
+      "label": "Condition and fault"
+    },
+    {
+      "fieldname": "fault_reported",
+      "fieldtype": "Small Text",
+      "label": "Reported fault",
+      "reqd": 1
+    },
+    {
+      "fieldname": "arrival_condition",
+      "fieldtype": "Small Text",
+      "label": "Condition on arrival",
+      "reqd": 1
+    },
+    {
+      "fieldname": "intake_evidence",
+      "fieldtype": "Attach",
+      "label": "Intake photo / evidence"
+    },
+    {
+      "fieldname": "progress_tab",
+      "fieldtype": "Tab Break",
+      "label": "Progress"
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Status",
+      "options": "Received\nDiagnosing\nAwaiting approval\nIn repair\nReady for collection\nCollected\nCancelled",
+      "default": "Received",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "assigned_to",
+      "fieldtype": "Link",
+      "label": "Assigned repairer",
+      "options": "User"
+    },
+    {
+      "fieldname": "external_repairer",
+      "fieldtype": "Link",
+      "label": "External repairer",
+      "options": "Supplier",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "progress_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "expected_ready_date",
+      "fieldtype": "Date",
+      "label": "Expected ready"
+    },
+    {
+      "fieldname": "fixed_at",
+      "fieldtype": "Datetime",
+      "label": "Fixed"
+    },
+    {
+      "fieldname": "collected_at",
+      "fieldtype": "Datetime",
+      "label": "Collected"
+    },
+    {
+      "fieldname": "work_section",
+      "fieldtype": "Section Break",
+      "label": "Repair work"
+    },
+    {
+      "fieldname": "diagnosis",
+      "fieldtype": "Small Text",
+      "label": "Diagnosis"
+    },
+    {
+      "fieldname": "work_done",
+      "fieldtype": "Small Text",
+      "label": "Work done"
+    },
+    {
+      "fieldname": "final_condition",
+      "fieldtype": "Small Text",
+      "label": "Final condition"
+    },
+    {
+      "fieldname": "follow_up_date",
+      "fieldtype": "Date",
+      "label": "Next follow-up"
+    },
+    {
+      "fieldname": "notes",
+      "fieldtype": "Small Text",
+      "label": "Notes"
+    },
+    {
+      "fieldname": "billing_tab",
+      "fieldtype": "Tab Break",
+      "label": "Quote and billing",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "currency",
+      "fieldtype": "Link",
+      "label": "Currency",
+      "options": "Currency",
+      "default": "NGN",
+      "read_only": 1,
+      "permlevel": 1
+    },
+    {
+      "fieldname": "customer_charge",
+      "fieldtype": "Currency",
+      "label": "Customer charge",
+      "options": "currency",
+      "non_negative": 1,
+      "permlevel": 1
+    },
+    {
+      "fieldname": "quote_approved",
+      "fieldtype": "Check",
+      "label": "Customer approved quote",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "approval_reference",
+      "fieldtype": "Data",
+      "label": "Approval reference",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "billing_column",
+      "fieldtype": "Column Break",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "parts_cost",
+      "fieldtype": "Currency",
+      "label": "Parts cost",
+      "options": "currency",
+      "non_negative": 1,
+      "permlevel": 1
+    },
+    {
+      "fieldname": "labour_cost",
+      "fieldtype": "Currency",
+      "label": "Labour cost",
+      "options": "currency",
+      "non_negative": 1,
+      "permlevel": 1
+    },
+    {
+      "fieldname": "other_cost",
+      "fieldtype": "Currency",
+      "label": "Other cost",
+      "options": "currency",
+      "non_negative": 1,
+      "permlevel": 1
+    },
+    {
+      "fieldname": "total_cost",
+      "fieldtype": "Currency",
+      "label": "Total repair cost",
+      "options": "currency",
+      "read_only": 1,
+      "permlevel": 1
+    },
+    {
+      "fieldname": "invoice_section",
+      "fieldtype": "Section Break",
+      "label": "Invoice and collection",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "sales_invoice",
+      "fieldtype": "Link",
+      "label": "Sales Invoice",
+      "options": "Sales Invoice",
+      "read_only": 1,
+      "no_copy": 1,
+      "permlevel": 1
+    },
+    {
+      "fieldname": "payment_due_date",
+      "fieldtype": "Date",
+      "label": "Payment due"
+    },
+    {
+      "fieldname": "agreement_reference",
+      "fieldtype": "Data",
+      "label": "Payment agreement",
+      "permlevel": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "print": 1
+    },
+    {
+      "role": "System Manager",
+      "permlevel": 1,
+      "read": 1,
+      "write": 1
+    },
+    {
+      "role": "K3LS Repair Staff",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "print": 1
+    }
+  ]
+}

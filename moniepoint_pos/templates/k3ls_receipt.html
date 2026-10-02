@@ -1,0 +1,44 @@
+<style>
+  .k3ls-receipt { max-width: 76mm; margin: 0 auto; font-size: 11px; color: #161616; }
+  .k3ls-receipt h2 { font-size: 17px; margin: 0 0 6px; }
+  .k3ls-receipt table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  .k3ls-receipt td, .k3ls-receipt th { padding: 5px 0; vertical-align: top; }
+  .k3ls-receipt th { border-bottom: 1px solid #aaa; text-align: left; }
+  .k3ls-receipt .amount { text-align: right; white-space: nowrap; }
+  .k3ls-receipt .total { border-top: 1px solid #aaa; font-weight: 600; }
+  .k3ls-receipt .detail { font-size: 10px; color: #555; overflow-wrap: anywhere; }
+</style>
+<div class="k3ls-receipt">
+  <h2>{{ doc.company | e }}</h2>
+  <div>{{ "Return receipt" if doc.is_return else "Sales receipt" }}</div>
+  <div>{{ doc.name | e }} · {{ doc.get_formatted("posting_date") }}</div>
+  {% if doc.docstatus == 0 %}<div>Draft</div>{% elif doc.docstatus == 2 %}<div>Cancelled</div>{% endif %}
+  <p>{{ doc.customer_name | e }}</p>
+  <table>
+    <thead><tr><th>Item</th><th class="amount">NGN</th></tr></thead>
+    <tbody>
+      {% for row in doc.items %}
+      <tr><td>{{ row.item_name | e }}<div class="detail">{{ row.item_code | e }}</div>
+        <div class="detail">{{ row.qty }} × {{ row.get_formatted("rate", doc) }}</div>
+        {% if row.serial_no %}<div class="detail">{{ row.serial_no | e }}</div>{% endif %}</td>
+        <td class="amount">{{ row.get_formatted("amount", doc) }}</td></tr>
+      {% endfor %}
+      {% for tax in doc.taxes %}
+      {% if tax.tax_amount %}<tr><td>{{ tax.description | e }}</td><td class="amount">{{ tax.get_formatted("tax_amount", doc) }}</td></tr>{% endif %}
+      {% endfor %}
+      {% if doc.discount_amount %}<tr><td>Discount</td><td class="amount">{{ doc.get_formatted("discount_amount") }}</td></tr>{% endif %}
+      <tr class="total"><td>Total</td><td class="amount">{{ doc.get_formatted("grand_total") }}</td></tr>
+      {% for payment in doc.payments %}{% if payment.amount %}
+      <tr><td>{{ payment.mode_of_payment | e }}</td><td class="amount">{{ payment.get_formatted("amount", doc) }}</td></tr>
+      {% endif %}{% endfor %}
+      {% if doc.change_amount %}<tr><td>Change</td><td class="amount">{{ doc.get_formatted("change_amount") }}</td></tr>{% endif %}
+      {% if doc.outstanding_amount %}<tr><td>Balance due</td><td class="amount">{{ doc.get_formatted("outstanding_amount") }}</td></tr>{% endif %}
+    </tbody>
+  </table>
+  {% if doc.custom_k3ls_condition %}
+  <p><strong>Condition</strong><br>{{ doc.custom_k3ls_condition | e }}</p>
+  <div>{{ doc.custom_k3ls_tested | e }}</div>
+  <div>{{ "Customer acknowledged condition" if doc.custom_k3ls_acknowledged else "Condition acknowledgement pending" }}</div>
+  {% if doc.custom_k3ls_disclosure_ref %}<div class="detail">{{ doc.custom_k3ls_disclosure_ref | e }}</div>{% endif %}
+  {% endif %}
+</div>
