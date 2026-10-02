@@ -17,3 +17,9 @@ The app persists a unique merchant reference before sending a request. Unknown o
 Installed on the local `development.localhost` site. Open `/desk/moniepoint-settings` for credentials, `/desk/moniepoint-terminal` for terminal mappings and `/desk/moniepoint-transaction` for request records. Integration remains disabled until configured.
 
 There are no checkout UI changes or webhook endpoint. Payment-success mapping, reconciliation and authenticated webhooks remain unimplemented. No live API calls or tests were performed.
+
+## K3LS navigation
+
+`moniepoint_pos.navigation.configure` sets up the focused Shop and Owner navigation with distinct icons. To refresh only the icons on existing K3LS workspaces, run `moniepoint_pos.navigation.apply_icons` as a System Manager. This preserves links, order and record permissions.
+
+Shop uses a storefront and Owner uses a shield. Each sidebar section has its own Lucide symbol. Desktop SVGs include solid and subtle variants in `moniepoint_pos/public/icons/desktop_icons`. The adapted Lucide geometry retains its license in `moniepoint_pos/public/icons/LICENSE`.
