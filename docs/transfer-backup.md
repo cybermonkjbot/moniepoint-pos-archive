@@ -60,6 +60,16 @@ It checks file checksums before installation and compares restored app versions,
 table and record counts, and authentication records with the backup.
 Existing WSL distributions are not changed. Docker and Homebrew are not used.
 No initial shop setup, password reset, stock posting or asset build runs.
+WSL 0.67.6 or newer is required for systemd. Suitable installed versions are used
+without forcing another update. Linux commands use `wsl --exec` so Windows paths
+are not interpreted by an extra shell. The Linux startup configuration is copied
+as a file and its previous content is preserved before replacement.
+
+For the `20261003-170202` transfer, a separate Windows repair ZIP can resume the
+installation after the invalid `/etc/wsl.conf` and `wslpath` errors. Extract the
+repair folder inside the original transfer and run its `Resume K3LS.vbs`.
+The repair verifies both packages and leaves the original manifest unchanged,
+so the already-imported Linux environment still matches its backup identity.
 
 Open http://localhost:8000 and use the same shop login. `Start K3LS.cmd` and
 `Stop K3LS.cmd` are copied to the Windows desktop. A scheduled task starts the

@@ -2,14 +2,16 @@
 set -euo pipefail
 umask 077
 K3LS_PACKAGE="$(cd "$1" && pwd)"
+K3LS_WINDOWS="$(cd "${2:-$K3LS_PACKAGE/windows}" && pwd)"
 K3LS_ROOT=/opt/k3ls
 K3LS_BENCH=/opt/k3ls/project/bench
 K3LS_PACKAGE_ID="$(sha256sum "$K3LS_PACKAGE/manifest.json" | cut -d' ' -f1)"
-[[ $EUID -eq 0 ]] || { echo "Run through Setup K3LS.cmd." >&2; exit 1; }
+[[ $EUID -eq 0 ]] || { echo "Run through Install K3LS.vbs." >&2; exit 1; }
 [[ $(uname -m) == x86_64 ]] || { echo "64-bit Intel/AMD Linux is required." >&2; exit 1; }
 [[ $(ps -p 1 -o comm=) == systemd ]] || { echo "WSL systemd is not active. Restart this distribution." >&2; exit 1; }
 if [[ -f "$K3LS_ROOT/.complete" ]]; then
     [[ $(<"$K3LS_ROOT/.package-id") == "$K3LS_PACKAGE_ID" ]] || { echo "Another backup is already installed." >&2; exit 1; }
+    install -m 0755 "$K3LS_WINDOWS/keep-alive.sh" "$K3LS_ROOT/keep-alive.sh"
     systemctl start mariadb nginx k3ls.target
     exit 0
 fi
@@ -27,7 +29,7 @@ apt-get install -y ca-certificates curl git build-essential pkg-config libmariad
     libharfbuzz-subset0 libfontconfig1 fonts-dejavu-core xz-utils gzip file
 if ! id k3ls >/dev/null 2>&1; then useradd --create-home --shell /bin/bash k3ls; fi
 systemctl disable --now redis-server
-install -m 0644 "$K3LS_PACKAGE/windows/mariadb.cnf" /etc/mysql/mariadb.conf.d/60-k3ls.cnf
+install -m 0644 "$K3LS_WINDOWS/mariadb.cnf" /etc/mysql/mariadb.conf.d/60-k3ls.cnf
 systemctl restart mariadb
 mkdir -p "$K3LS_ROOT/bin" "$K3LS_ROOT/runtime" "$K3LS_ROOT/backup" "$K3LS_ROOT/project"
 if [[ ! -x "$K3LS_ROOT/runtime/node/bin/node" ]]; then
@@ -65,7 +67,7 @@ for K3LS_APP in frappe erpnext moniepoint_pos; do
     ln -sfn "$K3LS_BENCH/apps/$K3LS_APP/$K3LS_APP/public" "$K3LS_BENCH/sites/assets/$K3LS_APP"
 done
 ln -sfn ../../node_modules "$K3LS_BENCH/apps/frappe/frappe/public/node_modules"
-install -m 0755 "$K3LS_PACKAGE/windows/restore-linux.py" "$K3LS_ROOT/restore-linux.py"
+install -m 0755 "$K3LS_WINDOWS/restore-linux.py" "$K3LS_ROOT/restore-linux.py"
 "$K3LS_BENCH/env/bin/python" "$K3LS_ROOT/restore-linux.py" "$K3LS_ROOT"
 chown -R k3ls:k3ls "$K3LS_ROOT/project" "$K3LS_ROOT/backup"
 # Nginx reads public files as www-data. Keep configs, database backups and
@@ -87,8 +89,9 @@ chown -R k3ls:k3ls "$K3LS_BENCH/logs" "$K3LS_BENCH/config"
 cd "$K3LS_BENCH"
 bench setup redis
 chown -R k3ls:k3ls "$K3LS_BENCH/config"
-for K3LS_FILE in "$K3LS_PACKAGE"/windows/units/*; do install -m 0644 "$K3LS_FILE" /etc/systemd/system/; done
-install -m 0644 "$K3LS_PACKAGE/windows/nginx.conf" /etc/nginx/sites-available/k3ls
+for K3LS_FILE in "$K3LS_WINDOWS"/units/*; do install -m 0644 "$K3LS_FILE" /etc/systemd/system/; done
+install -m 0755 "$K3LS_WINDOWS/keep-alive.sh" "$K3LS_ROOT/keep-alive.sh"
+install -m 0644 "$K3LS_WINDOWS/nginx.conf" /etc/nginx/sites-available/k3ls
 ln -sfn /etc/nginx/sites-available/k3ls /etc/nginx/sites-enabled/k3ls
 systemctl daemon-reload
 systemctl enable mariadb nginx k3ls.target

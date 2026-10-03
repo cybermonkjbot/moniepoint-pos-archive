@@ -1,13 +1,23 @@
-param([switch]$Elevated)
+param([switch]$Elevated, [string]$PackageRoot, [string]$WindowsScriptsRoot)
 $ErrorActionPreference = 'Stop'
 $distro = 'K3LS-Shop'
 $taskName = 'K3LS Shop Server'
-$packageRoot = Split-Path -Parent $PSScriptRoot
+if (-not $PackageRoot) { $PackageRoot = Split-Path -Parent $PSScriptRoot }
+if (-not $WindowsScriptsRoot) { $WindowsScriptsRoot = $PSScriptRoot }
+$packageRoot = [IO.Path]::GetFullPath($PackageRoot)
+$windowsRoot = [IO.Path]::GetFullPath($WindowsScriptsRoot)
 
 function Invoke-Wsl {
     param([string[]]$Arguments)
     & wsl.exe @Arguments
     if ($LASTEXITCODE -ne 0) { throw "WSL command failed with code $LASTEXITCODE." }
+}
+
+function Get-WslOutput {
+    param([string[]]$Arguments)
+    $lines = @(& wsl.exe @Arguments)
+    if ($LASTEXITCODE -ne 0) { throw "WSL command failed with code $LASTEXITCODE." }
+    return (($lines -join "`n") -replace "`0", '').Trim()
 }
 
 try {
@@ -20,7 +30,7 @@ try {
     if ($env:USERNAME -eq 'SYSTEM') { throw 'Run setup as the Windows account that will use the shop.' }
     $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        $arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $PSCommandPath + '" -Elevated'
+        $arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $PSCommandPath + '" -Elevated -PackageRoot "' + $packageRoot + '" -WindowsScriptsRoot "' + $windowsRoot + '"'
         $child = Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
         exit $child.ExitCode
     }
@@ -38,10 +48,19 @@ try {
         Write-Host 'Restart Windows, then double-click Install K3LS.vbs again.'
         exit 0
     }
-    Write-Host 'Updating WSL...'
-    Invoke-Wsl -Arguments @('--update')
-    & wsl.exe --version | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw 'Update the WSL app from Microsoft, restart Windows and rerun setup.' }
+    Write-Host 'Checking the installed WSL version...'
+    $versionLines = @(& wsl.exe --version)
+    $versionAvailable = $LASTEXITCODE -eq 0
+    $versionMatch = [regex]::Match((($versionLines -join "`n") -replace "`0", ''), '\d+\.\d+\.\d+')
+    if (-not $versionAvailable -or -not $versionMatch.Success -or [version]$versionMatch.Value -lt [version]'0.67.6') {
+        Write-Host 'Updating WSL for systemd support...'
+        Invoke-Wsl -Arguments @('--update', '--web-download')
+        $versionLines = @(& wsl.exe --version)
+        if ($LASTEXITCODE -ne 0) { throw 'Update the WSL app from Microsoft, restart Windows and rerun setup.' }
+        $versionMatch = [regex]::Match((($versionLines -join "`n") -replace "`0", ''), '\d+\.\d+\.\d+')
+        if (-not $versionMatch.Success -or [version]$versionMatch.Value -lt [version]'0.67.6') { throw 'WSL 0.67.6 or newer is required for systemd.' }
+    }
+    Write-Host ('Using installed WSL ' + $versionMatch.Value + '.')
     $registered = @(& wsl.exe --list --quiet | ForEach-Object { ($_ -replace "`0", '').Trim() })
     if ($LASTEXITCODE -ne 0) { throw 'WSL is not ready. Restart Windows and rerun setup.' }
     $installLocation = Join-Path $localRoot 'Linux'
@@ -64,34 +83,53 @@ try {
         }
         Invoke-Wsl -Arguments @('--import', $distro, $installLocation, $image, '--version', '2')
         Set-Content -LiteralPath $ownership -Value $fingerprint -Encoding ASCII
-        Invoke-Wsl -Arguments @('-d', $distro, '-u', 'root', '--', 'bash', '-c', 'printf "[boot]\nsystemd=true\n[user]\ndefault=k3ls\n" > /etc/wsl.conf')
-        Invoke-Wsl -Arguments @('--terminate', $distro)
     } else {
-        & wsl.exe -d $distro -u root -- test -f /opt/k3ls/.complete
-        $complete = $LASTEXITCODE -eq 0
-        & wsl.exe -d $distro -u root -- test -f /opt/k3ls/.package-id
+        & wsl.exe -d $distro -u root --exec /usr/bin/test -f /opt/k3ls/.package-id
         if ($LASTEXITCODE -ne 0) {
             $registration = Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss' | ForEach-Object { Get-ItemProperty $_.PSPath } | Where-Object { $_.DistributionName -eq $distro }
             $ownedImport = (Test-Path -LiteralPath $ownership) -and ((Get-Content -LiteralPath $ownership -Raw).Trim() -eq $fingerprint)
             $basePath = if ($registration) { $registration.BasePath -replace '^\\\\\?\\', '' } else { '' }
             $sameLocation = $registration -and ([IO.Path]::GetFullPath($basePath).TrimEnd('\') -eq [IO.Path]::GetFullPath($installLocation).TrimEnd('\'))
             if (-not $ownedImport -or -not $sameLocation) { throw 'A different K3LS-Shop distribution already exists. Setup will not change it.' }
-            Invoke-Wsl -Arguments @('-d', $distro, '-u', 'root', '--', 'bash', '-c', 'printf "[boot]\nsystemd=true\n[user]\ndefault=k3ls\n" > /etc/wsl.conf')
-            Invoke-Wsl -Arguments @('--terminate', $distro)
         } else {
-            $saved = (& wsl.exe -d $distro -u root -- cat /opt/k3ls/.package-id).Trim()
+            $saved = Get-WslOutput -Arguments @('-d', $distro, '-u', 'root', '--exec', '/usr/bin/cat', '/opt/k3ls/.package-id')
             if ($saved -ne $fingerprint) { throw 'This installation belongs to another backup. Restoring over it is blocked.' }
         }
     }
-    $linuxRoot = (& wsl.exe -d $distro -u root -- wslpath -u $packageRoot).Trim()
-    if ($LASTEXITCODE -ne 0 -or -not $linuxRoot) { throw 'Could not locate the transferred folder inside Linux.' }
+    # --exec avoids the default Linux shell interpreting Windows backslashes
+    # and embedded quotes. Configuration is copied as a file, not shell code.
+    $linuxRoot = Get-WslOutput -Arguments @('-d', $distro, '-u', 'root', '--exec', '/usr/bin/wslpath', '-u', $packageRoot)
+    $linuxWindows = Get-WslOutput -Arguments @('-d', $distro, '-u', 'root', '--exec', '/usr/bin/wslpath', '-u', $windowsRoot)
+    if (-not $linuxRoot -or -not $linuxWindows) { throw 'Could not locate the transferred folder inside Linux.' }
+    Invoke-Wsl -Arguments @('-d', $distro, '-u', 'root', '--exec', '/usr/bin/test', '-f', "$linuxRoot/manifest.json")
+    Invoke-Wsl -Arguments @('-d', $distro, '-u', 'root', '--exec', '/usr/bin/test', '-f', "$linuxWindows/wsl.conf")
+    & wsl.exe -d $distro -u root --exec /usr/bin/id -u k3ls | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Invoke-Wsl -Arguments @('-d', $distro, '-u', 'root', '--exec', '/usr/sbin/useradd', '--create-home', '--shell', '/bin/bash', 'k3ls')
+    }
+    & wsl.exe -d $distro -u root --exec /usr/bin/cmp -s "$linuxWindows/wsl.conf" /etc/wsl.conf
+    $configResult = $LASTEXITCODE
+    if ($configResult -ne 0) {
+        Write-Host 'Configuring K3LS Linux startup...'
+        & wsl.exe -d $distro -u root --exec /usr/bin/test -f /etc/wsl.conf
+        if ($LASTEXITCODE -eq 0) {
+            & wsl.exe -d $distro -u root --exec /usr/bin/test -e /etc/wsl.conf.k3ls-before-repair
+            if ($LASTEXITCODE -ne 0) {
+                Invoke-Wsl -Arguments @('-d', $distro, '-u', 'root', '--exec', '/usr/bin/cp', '--', '/etc/wsl.conf', '/etc/wsl.conf.k3ls-before-repair')
+            }
+        }
+        Invoke-Wsl -Arguments @('-d', $distro, '-u', 'root', '--exec', '/usr/bin/cp', '--', "$linuxWindows/wsl.conf", '/etc/wsl.conf')
+        Invoke-Wsl -Arguments @('--terminate', $distro)
+    }
+    $init = Get-WslOutput -Arguments @('-d', $distro, '-u', 'root', '--exec', '/usr/bin/ps', '-p', '1', '-o', 'comm=')
+    if ($init -ne 'systemd') { throw 'K3LS Linux did not start systemd. Close its terminals and rerun setup.' }
     Write-Host 'Installing the exact K3LS backup into its own Linux environment...'
-    Invoke-Wsl -Arguments @('-d', $distro, '-u', 'root', '--', 'bash', "$linuxRoot/windows/install-linux.sh", $linuxRoot)
+    Invoke-Wsl -Arguments @('-d', $distro, '-u', 'root', '--exec', '/bin/bash', "$linuxWindows/install-linux.sh", $linuxRoot, $linuxWindows)
     $stable = Join-Path $localRoot 'Launcher'
     New-Item -ItemType Directory -Path $stable -Force | Out-Null
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'start-windows.ps1') -Destination $stable -Force
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Start K3LS.cmd') -Destination $stable -Force
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Stop K3LS.cmd') -Destination $stable -Force
+    Copy-Item -LiteralPath (Join-Path $windowsRoot 'start-windows.ps1') -Destination $stable -Force
+    Copy-Item -LiteralPath (Join-Path $windowsRoot 'Start K3LS.cmd') -Destination $stable -Force
+    Copy-Item -LiteralPath (Join-Path $windowsRoot 'Stop K3LS.cmd') -Destination $stable -Force
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + (Join-Path $stable 'start-windows.ps1') + '" -KeepAlive')
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User ([Security.Principal.WindowsIdentity]::GetCurrent().Name)
     $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew

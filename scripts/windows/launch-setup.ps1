@@ -1,13 +1,15 @@
 # The visible PowerShell host never runs the installer's exit statements.
 # The installer runs in a child process, with output kept in this window.
+param([string]$PackageRoot)
 $ErrorActionPreference = 'Stop'
-$packageRoot = Split-Path -Parent $PSScriptRoot
+if (-not $PackageRoot) { $PackageRoot = Split-Path -Parent $PSScriptRoot }
+$packageRoot = [IO.Path]::GetFullPath($PackageRoot)
 $powershell = Join-Path $PSHOME 'powershell.exe'
 $log = $null
 try {
     $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        $arguments = '-NoExit -NoProfile -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
+        $arguments = '-NoExit -NoProfile -ExecutionPolicy Bypass -File "' + $PSCommandPath + '" -PackageRoot "' + $packageRoot + '"'
         Start-Process -FilePath $powershell -Verb RunAs -ArgumentList $arguments -WorkingDirectory $packageRoot
         Write-Host 'Continue in the administrator PowerShell window.'
         return
@@ -22,7 +24,7 @@ try {
     # Windows PowerShell 5.1 can wrap native stderr as non-terminating errors.
     # Keep all output and use the installer process exit code as the result.
     $ErrorActionPreference = 'Continue'
-    & $powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'setup-windows.ps1') -Elevated 2>&1 | Tee-Object -FilePath $log
+    & $powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'setup-windows.ps1') -Elevated -PackageRoot $packageRoot -WindowsScriptsRoot $PSScriptRoot 2>&1 | Tee-Object -FilePath $log
     $result = $LASTEXITCODE
     $ErrorActionPreference = 'Stop'
     Write-Host ''
