@@ -55,6 +55,12 @@ if [[ ! -f "$K3LS_ROOT/.source-ready" ]]; then
     tar -xzf "$K3LS_ROOT/backup/site-assets.tar.gz" -C "$K3LS_BENCH/sites/assets"
     touch "$K3LS_ROOT/.source-ready"
 fi
+# Runtime folders are not part of the source archive. Frappe opens both bench
+# and site log files while connecting, before restore verification completes.
+mkdir -p "$K3LS_BENCH/logs" "$K3LS_BENCH/config/pids" \
+    "$K3LS_BENCH/sites/development.localhost/logs" \
+    "$K3LS_BENCH/sites/development.localhost/locks" \
+    "$K3LS_BENCH/sites/development.localhost/private/backups"
 uv venv --python 3.14.7 --allow-existing "$K3LS_BENCH/env"
 uv pip install --python "$K3LS_BENCH/env/bin/python" -r "$K3LS_ROOT/backup/python-requirements.txt"
 uv pip install --python "$K3LS_BENCH/env/bin/python" --no-deps -e "$K3LS_BENCH/apps/frappe" -e "$K3LS_BENCH/apps/erpnext" -e "$K3LS_BENCH/apps/moniepoint_pos"
@@ -84,7 +90,6 @@ chmod -R a+rX "$K3LS_BENCH/sites/development.localhost/public"
 chmod 0700 "$K3LS_BENCH/sites/development.localhost/private"
 chmod 0755 "$K3LS_ROOT" "$K3LS_ROOT/runtime" "$K3LS_ROOT/bin"
 chmod -R a+rX "$K3LS_ROOT/runtime" "$K3LS_ROOT/bin"
-mkdir -p "$K3LS_BENCH/logs" "$K3LS_BENCH/config/pids"
 chown -R k3ls:k3ls "$K3LS_BENCH/logs" "$K3LS_BENCH/config"
 cd "$K3LS_BENCH"
 bench setup redis

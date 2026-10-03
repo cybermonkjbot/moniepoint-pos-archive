@@ -24,6 +24,9 @@ site.mkdir(parents=True, exist_ok=True)
 marker = root / ".database-restored"
 owned = root / ".database-owned"
 os.umask(0o077)
+# Also support retrying this restoration directly after a partial installation.
+for directory in (bench / "logs", site / "logs", site / "locks", site / "private/backups"):
+    directory.mkdir(parents=True, exist_ok=True)
 db_name = "k3ls_shop"
 db_user = "k3ls_shop"
 if not source.get("encryption_key"):

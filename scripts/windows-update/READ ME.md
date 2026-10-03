@@ -15,6 +15,7 @@ The backup manifest and shop data are not changed. Corrected scripts run from
 their own folder so the archive fix remains active.
 
 This update corrects the uploaded-file archive check for verified Mac metadata.
+It creates the log and lock folders before checking the restored site.
 It uses the same Linux environment as the original transfer. The database restore
 completion marker preserves the database already restored, including logins.
 The installer retries missing dependencies, restores the actual uploaded files,
