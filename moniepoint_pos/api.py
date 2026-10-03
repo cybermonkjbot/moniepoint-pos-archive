@@ -20,6 +20,8 @@ def _settings():
     settings = frappe.get_single("Moniepoint Settings")
     if not settings.enabled:
         frappe.throw("Moniepoint is turned off.")
+    if settings.auth_method == "Client credentials":
+        frappe.throw("Confirm the client connection environment before connecting Moniepoint.")
     key = settings.get_password("api_key", raise_exception=False)
     if not key:
         frappe.throw("Add the Moniepoint connection key first.")

@@ -6,7 +6,11 @@
   "engine": "InnoDB",
   "field_order": [
     "enabled",
+    "auth_method",
     "api_key",
+    "client_id",
+    "client_secret",
+    "environment",
     "amount_units",
     "contract_confirmed",
     "webhook_secret"
@@ -18,9 +22,36 @@
       "fieldtype": "Check"
     },
     {
+      "fieldname": "auth_method",
+      "label": "Connection method",
+      "fieldtype": "Select",
+      "options": "API key\nClient credentials",
+      "default": "API key"
+    },
+    {
       "fieldname": "api_key",
       "label": "API key",
-      "fieldtype": "Password"
+      "fieldtype": "Password",
+      "depends_on": "eval:doc.auth_method !== 'Client credentials'"
+    },
+    {
+      "fieldname": "client_id",
+      "label": "Client ID",
+      "fieldtype": "Password",
+      "depends_on": "eval:doc.auth_method === 'Client credentials'"
+    },
+    {
+      "fieldname": "client_secret",
+      "label": "Client key",
+      "fieldtype": "Password",
+      "depends_on": "eval:doc.auth_method === 'Client credentials'"
+    },
+    {
+      "fieldname": "environment",
+      "label": "Connection environment",
+      "fieldtype": "Select",
+      "options": "\nSandbox\nProduction",
+      "depends_on": "eval:doc.auth_method === 'Client credentials'"
     },
     {
       "fieldname": "amount_units",
@@ -50,4 +81,3 @@
   ],
   "track_changes": 1
 }
-

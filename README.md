@@ -2,7 +2,7 @@
 
 ERPNext custom app for API-key terminal integration. Disabled by default.
 
-After installation, a System Manager configures Moniepoint Settings and a Moniepoint Terminal for each POS Profile. Credentials are Frappe Password fields and remain server-side. Only the published production API-key contract is implemented. Legacy client-ID token exchange is not implemented.
+After installation, a System Manager configures Moniepoint Settings and a Moniepoint Terminal for each POS Profile. Credentials are encrypted Frappe Password fields and remain server-side. The API-key connection uses the published production API contract. Client credentials can be stored separately, but client-ID token exchange is blocked until Moniepoint confirms its HTTPS environment endpoints. See `docs/moniepoint-client-auth.md` for the documented exchange and remaining gaps.
 
 Confirm amount units with Moniepoint before enabling requests. A saved NGN draft POS Invoice needs exactly one positive payment row matching the terminal's Mode of Payment.
 
