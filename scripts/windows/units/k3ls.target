@@ -1,0 +1,7 @@
+[Unit]
+Description=K3LS Shop
+Wants=k3ls-web.service k3ls-realtime.service k3ls-worker.service k3ls-scheduler.service
+After=mariadb.service nginx.service
+
+[Install]
+WantedBy=multi-user.target

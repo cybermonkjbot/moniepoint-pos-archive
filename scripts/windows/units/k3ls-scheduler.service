@@ -1,0 +1,16 @@
+[Unit]
+Description=K3LS scheduled jobs
+After=mariadb.service k3ls-queue.service
+Requires=k3ls-queue.service
+PartOf=k3ls.target
+
+[Service]
+User=k3ls
+WorkingDirectory=/opt/k3ls/project/bench
+Environment=PATH=/opt/k3ls/bin:/opt/k3ls/runtime/node/bin:/usr/bin:/bin
+ExecStart=/opt/k3ls/bin/bench schedule
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=k3ls.target

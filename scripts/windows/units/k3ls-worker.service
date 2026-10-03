@@ -1,0 +1,17 @@
+[Unit]
+Description=K3LS background jobs
+After=mariadb.service k3ls-queue.service k3ls-cache.service
+Requires=k3ls-cache.service k3ls-queue.service
+PartOf=k3ls.target
+
+[Service]
+User=k3ls
+WorkingDirectory=/opt/k3ls/project/bench
+Environment=PATH=/opt/k3ls/bin:/opt/k3ls/runtime/node/bin:/usr/bin:/bin
+ExecStart=/opt/k3ls/bin/bench worker --queue short,default,long
+Restart=always
+RestartSec=5
+TimeoutStopSec=1560
+
+[Install]
+WantedBy=k3ls.target

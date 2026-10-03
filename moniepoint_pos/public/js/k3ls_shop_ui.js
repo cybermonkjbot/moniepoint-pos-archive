@@ -3,9 +3,9 @@
     const config = frappe.boot.k3ls_shop_ui;
     if (!config) return;
     // Discard cached page scripts, never draft or business data, after app updates.
-    const revision = "20261003-41";
+    const revision = "20261003-47";
     if (localStorage.getItem("k3ls-page-revision") !== revision) {
-        for (const page_name of ["point-of-sale", "shop-repairs", "shop-accounts", "shop-money-owed", "permission-manager"]) {
+        for (const page_name of ["point-of-sale", "shop-repairs", "shop-accounts", "shop-profit", "shop-money-owed", "permission-manager"]) {
             localStorage.removeItem(`_page:${page_name}`);
         }
         localStorage.setItem("k3ls-page-revision", revision);
@@ -185,9 +185,9 @@
     const update_dock = () => {
         const route = frappe.get_route() || [];
         const entity = ["Form", "List", "Tree"].includes(route[0]) ? route[1] : route[0];
-        const shop_screen = Boolean(config[entity] || ["point-of-sale", "shop-repairs", "shop-accounts", "shop-money-owed", "shop-staff", "permission-manager", "User", "Workspaces", "K3LS Shop", "K3LS Owner"].includes(entity));
+        const shop_screen = Boolean(config[entity] || ["point-of-sale", "shop-repairs", "shop-accounts", "shop-profit", "shop-money-owed", "shop-staff", "permission-manager", "User", "Workspaces", "K3LS Shop", "K3LS Owner"].includes(entity));
         document.body.classList.toggle("k3ls-app-screen", shop_screen);
-        const owner_screen = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-money-owed", "shop-staff", "permission-manager", "User", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction", "K3LS Owner"]
+        const owner_screen = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-profit", "shop-money-owed", "shop-staff", "permission-manager", "User", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction", "K3LS Owner"]
             .includes(entity) || (entity === "Workspaces" && route[1] === "K3LS Owner")
             || (["POS Invoice", "Item", "shop-repairs", "K3LS Repair"].includes(entity) && frappe.app?.sidebar?.sidebar_title === "K3LS Owner");
         document.body.classList.toggle("k3ls-owner-screen", owner_screen);
@@ -372,12 +372,13 @@
                     const summary = frm.k3ls_payment_summary.empty().toggle(!reveal);
                     for (const payment of frm.doc.payments || []) {
                         const card = $("<div class='k3ls-checkout-method'></div>").appendTo(summary);
-                        if (payment.mode_of_payment === "Moniepoint MFB") {
-                            $("<img alt='' src='/assets/moniepoint_pos/images/moniepoint-mark.svg'>").appendTo(card);
+                        const icon = frappe.boot.k3ls_bank_icons?.[payment.mode_of_payment];
+                        if (icon) {
+                            $("<img alt=''>").attr("src", `/assets/moniepoint_pos/images/${icon}`).appendTo(card);
                         } else $("<span aria-hidden='true'></span>").html(frappe.utils.icon("wallet", "lg")).appendTo(card);
                         const text = $("<div></div>").appendTo(card);
                         $("<strong></strong>").text(__(payment.mode_of_payment)).appendTo(text);
-                        $("<small></small>").text(__(payment.default ? "Default" : payment.mode_of_payment === "Moniepoint MFB" ? "Card or transfer" : "")).appendTo(text);
+                        $("<small></small>").text(__(payment.default ? "Default" : payment.mode_of_payment === "Moniepoint MFB" ? "Card or transfer" : "Bank transfer")).appendTo(text);
                     }
                     grid.toggle(reveal);
                     $("<p class='text-muted'></p>").text(__("Part payments are available at checkout.")).appendTo(summary);
@@ -474,8 +475,8 @@
                             const query = payment.k3ls_purchase_query?.(...args) || {};
                             if (frm.k3ls_more_fields) return query;
                             const filters = Array.isArray(query.filters)
-                                ? [...query.filters, ["Mode of Payment", "name", "in", ["Cash", "Moniepoint MFB"]]]
-                                : {...query.filters, name: ["in", ["Cash", "Moniepoint MFB"]]};
+                                ? [...query.filters, ["Mode of Payment", "name", "in", frappe.boot.k3ls_payment_methods]]
+                                : {...query.filters, name: ["in", frappe.boot.k3ls_payment_methods]};
                             return {...query, filters};
                         };
                     }
@@ -487,6 +488,7 @@
                     set_property("stock_uom", "hidden", frm.k3ls_original_hidden.stock_uom);
                 }
                 if (doctype === "Item") {
+                    if (frappe.k3ls_product_prices) frappe.k3ls_product_prices(frm);
                     for (const name of ["item_code", "stock_uom", "is_stock_item", "has_serial_no", "opening_stock", "valuation_rate", "standard_rate",
                         "custom_k3ls_purchase_cost", "custom_k3ls_landing_cost"]) {
                         set_property(name, "read_only", !reveal && !frm.is_new() ? 1 : frm.k3ls_original_read_only[name] || 0);
@@ -841,7 +843,7 @@
         };
         const resolve = sidebar.resolve_sidebar;
         const shop = ["Item", "Customer", "K3LS Repair", "shop-repairs", "POS Invoice", "Sales Invoice", "point-of-sale"];
-        const owner = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-money-owed", "shop-staff", "permission-manager", "User", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction"];
+        const owner = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-profit", "shop-money-owed", "shop-staff", "permission-manager", "User", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction"];
         sidebar.resolve_sidebar = function (entity, module) {
             const url_sidebar = new URLSearchParams(location.search).get("sidebar")?.replace(/^"|"$/g, "");
             if (frappe.get_route()?.[0] === "permission-manager" && this.all_sidebar_items["k3ls owner"]) return "K3LS Owner";

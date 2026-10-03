@@ -20,6 +20,7 @@ SECTION_ICONS = {
         "Suppliers": "truck",
         "Restock": "shopping-bag",
         "Accounts": "landmark",
+        "Profit": "chart-line",
         "Checkout settings": "sliders-horizontal",
         "Moniepoint settings": "key-round",
     },

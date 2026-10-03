@@ -1,0 +1,17 @@
+[Unit]
+Description=K3LS web server
+After=mariadb.service k3ls-cache.service k3ls-queue.service
+Requires=k3ls-cache.service k3ls-queue.service
+PartOf=k3ls.target
+
+[Service]
+User=k3ls
+WorkingDirectory=/opt/k3ls/project/bench/sites
+Environment=PATH=/opt/k3ls/bin:/opt/k3ls/runtime/node/bin:/usr/bin:/bin
+ExecStart=/opt/k3ls/project/bench/env/bin/gunicorn -b 127.0.0.1:8001 -w 2 -t 120 --graceful-timeout 30 --max-requests 5000 --max-requests-jitter 500 frappe.app:application --preload
+Restart=always
+RestartSec=5
+TimeoutStopSec=45
+
+[Install]
+WantedBy=k3ls.target

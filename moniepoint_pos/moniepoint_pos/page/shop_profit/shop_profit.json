@@ -1,0 +1,9 @@
+{
+ "doctype": "Page",
+ "module": "Moniepoint POS",
+ "name": "shop-profit",
+ "page_name": "shop-profit",
+ "roles": [{"role": "System Manager"}],
+ "standard": "Yes",
+ "title": "Profit"
+}

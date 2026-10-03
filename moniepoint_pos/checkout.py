@@ -5,7 +5,7 @@ from frappe.utils.file_manager import save_file
 
 COMPANY = "K3LS LIMITED"
 PROFILE = "K3LS Shop"
-PAYMENT_METHODS = ("Cash", "Moniepoint MFB")
+PAYMENT_METHODS = ("Cash", "Moniepoint MFB", "FCMB", "UBA")
 
 
 def configure():
@@ -18,7 +18,7 @@ def configure():
         payment = frappe.get_doc("Mode of Payment", method)
         if not payment.enabled or not any(row.company == COMPANY and row.default_account for row in payment.accounts):
             frappe.throw(f"Set up the {method} account before changing checkout.")
-    backup_name = "k3ls-checkout-before-two-methods.json"
+    backup_name = "k3ls-checkout-before-company-banks.json"
     if not frappe.db.exists("File", {"file_name": backup_name}):
         save_file(backup_name, frappe.as_json(profile.as_dict()), None, None, is_private=1)
     existing = {row.mode_of_payment: row for row in profile.payments}

@@ -1,0 +1,13 @@
+[Unit]
+Description=K3LS cache
+PartOf=k3ls.target
+
+[Service]
+User=k3ls
+WorkingDirectory=/opt/k3ls/project/bench
+ExecStart=/usr/bin/redis-server /opt/k3ls/project/bench/config/redis_cache.conf
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=k3ls.target

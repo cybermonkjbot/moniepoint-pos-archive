@@ -2,6 +2,16 @@
 
 ERPNext custom app for API-key terminal integration. Disabled by default.
 
+## Transfer backup
+
+The repeatable [transfer exporter](scripts/export_transfer_backup.py) preserves the
+complete site database, files, encryption key, exact source, available Git history
+and compiled assets. See [transfer instructions](docs/transfer-backup.md). The
+Windows verifier checks copied files. `Setup K3LS.cmd` installs an isolated WSL2
+runtime and restores the saved shop with its existing accounts and passwords.
+The Windows installer has not yet run on the target PC. Docker and Homebrew are not used.
+Native Windows hosting and PHP server bundles are not supported by this Frappe setup.
+
 After installation, a System Manager configures Moniepoint Settings and a Moniepoint Terminal for each POS Profile. Credentials are encrypted Frappe Password fields and remain server-side. The API-key connection uses the published production API contract. Client credentials can be stored separately, but client-ID token exchange is blocked until Moniepoint confirms its HTTPS environment endpoints. See `docs/moniepoint-client-auth.md` for the documented exchange and remaining gaps.
 
 Confirm amount units with Moniepoint before enabling requests. A saved NGN draft POS Invoice needs exactly one positive payment row matching the terminal's Mode of Payment.
@@ -70,9 +80,9 @@ Rendered checks reuse the running local app. No tests, builds, bundling or addit
 
 ## Checkout settings
 
-`moniepoint_pos.checkout.configure` changes only K3LS Shop's checkout configuration. It keeps Cash as the default and Moniepoint as the other payment method. Existing FCMB, Sterling and UBA bank masters and all invoices/shifts remain intact. The previous profile is stored in private `k3ls-checkout-before-two-methods.json` for manual restoration.
+`moniepoint_pos.checkout.configure` changes only K3LS Shop's checkout configuration. Cash is the default, alongside Moniepoint, FCMB and UBA. Existing bank masters and all invoices/shifts remain intact. The previous profile is stored in private `k3ls-checkout-before-company-banks.json` for manual restoration.
 
-Checkout settings shows two read-only payment cards. Country, active status, receipt options, currency, price list, ledger accounts, write-offs, product filters and stock controls remain configured but hidden in the routine view. Part payments remain enabled, stock validation stays on, and payment amounts are not assumed received automatically. Existing drafts with nonzero legacy payment amounts retain those choices. Accounts shows only the accounts backing Cash and Moniepoint, with balances and transaction details. The date and refresh-time lines are omitted. Other bank accounts and their history remain in ERPNext.
+Checkout settings shows read-only payment cards for the four methods. Country, active status, receipt options, currency, price list, ledger accounts, write-offs, product filters and stock controls remain configured but hidden in the routine view. Part payments remain enabled, stock validation stays on, and payment amounts are not assumed received automatically. Existing drafts with nonzero legacy payment amounts retain those choices. Accounts shows Cash, Moniepoint, FCMB and UBA, with ledger balances and transaction details. FCMB and UBA also show the company's saved account name and number with their bank marks. No bank API connection or external balance lookup is implied.
 
 Tax setup controls, including item-row tax templates, are hidden across the routine shop forms. Tax rules, invoice calculations and nonzero amount disclosures are not removed or reset. More fields restores the administrator's original controls. Hiding controls is not an authorization boundary.
 

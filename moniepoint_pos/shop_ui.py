@@ -160,6 +160,10 @@ def enabled():
 def boot_session(bootinfo):
     if not enabled():
         return
+    from moniepoint_pos.checkout import PAYMENT_METHODS
+    from moniepoint_pos.accounts import BANK_ICONS
+    bootinfo.k3ls_payment_methods = list(PAYMENT_METHODS)
+    bootinfo.k3ls_bank_icons = BANK_ICONS
     bootinfo.k3ls_shop_ui = presentation_config()
     from moniepoint_pos.list_search import LISTS
     for doctype, search in LISTS.items():

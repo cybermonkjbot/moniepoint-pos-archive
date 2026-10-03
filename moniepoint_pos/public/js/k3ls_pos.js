@@ -184,14 +184,15 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
                         const mode = payment.sanitize_mode_of_payment(row.mode_of_payment);
                         const card = payment.$payment_modes.find(`.mode-of-payment[data-mode='${mode}']`);
                         // Old drafts can contain other methods. Never hide money already entered.
-                        if (!["Cash", "Moniepoint MFB"].includes(row.mode_of_payment) && !flt(row.amount)) {
+                        if (!(frappe.boot.k3ls_payment_methods || []).includes(row.mode_of_payment) && !flt(row.amount)) {
                             card.parent().remove(); continue;
                         }
                         card.attr({role: "button", tabindex: "0", "aria-label": __(row.mode_of_payment)});
                         card.contents().filter(function () {return this.nodeType === 3;}).first().replaceWith(
                             $("<span class='k3ls-payment-name'></span>").text(__(row.mode_of_payment)));
-                        if (row.mode_of_payment === "Moniepoint MFB") {
-                            $("<img class='k3ls-payment-mark' alt='' src='/assets/moniepoint_pos/images/moniepoint-mark.svg'>").prependTo(card);
+                        const icon = frappe.boot.k3ls_bank_icons?.[row.mode_of_payment];
+                        if (icon) {
+                            $("<img class='k3ls-payment-mark' alt=''>").attr("src", `/assets/moniepoint_pos/images/${icon}`).prependTo(card);
                         }
                         card.on("keydown.k3ls", event => {
                             if (event.target !== card[0] || !["Enter", " "].includes(event.key)) return;

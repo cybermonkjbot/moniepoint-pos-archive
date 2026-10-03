@@ -1,4 +1,11 @@
 /* K3LS presentation only. Audit records and access permissions remain unchanged. */
+.k3ls-price-cards {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 20px;}
+.k3ls-price-card {display: flex; flex-direction: column; gap: 10px; padding: 22px; border: 1px solid var(--k3ls-line, var(--border-color)); border-radius: 18px; background: var(--k3ls-card, var(--card-bg)); min-width: 0;}
+.k3ls-price-card span {color: var(--text-muted); font-size: 14px;}
+.k3ls-price-card strong {font-size: clamp(18px, 2vw, 26px); line-height: 1.3; overflow-wrap: anywhere; color: var(--text-color);}
+.k3ls-product-prices {padding: 16px 0;}
+.k3ls-profit {max-width: 1060px; margin: 0 auto; padding: 28px 24px;}
+@media (max-width: 600px) {.k3ls-price-cards {grid-template-columns: 1fr; gap: 10px;} .k3ls-price-card {padding: 18px;} .k3ls-profit {padding: 20px 16px;} }
 .k3ls-shop .awesomplete [role="option"]:has([title="filter_description__link_option"]) {
     display: none !important;
 }
@@ -252,6 +259,10 @@ body.k3ls-shop {
     font-size: 17px;
     overflow-wrap: anywhere;
 }
+
+.k3ls-bank-mark {width: 32px; height: 32px; object-fit: contain; border-radius: 5px;}
+.k3ls-bank-number {font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: .03em;}
+.k3ls-bank-holder {font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere;}
 
 .k3ls-account-balance {
     text-align: end;
