@@ -23,8 +23,8 @@ def configure():
     sidebar = frappe.get_doc("Workspace Sidebar", PROFILE)
     for row in sidebar.items:
         if row.label == "Repairs":
-            row.link_type = "DocType"
-            row.link_to = "K3LS Repair"
+            row.link_type = "Page" if frappe.db.exists("Page", "shop-repairs") else "DocType"
+            row.link_to = "shop-repairs" if row.link_type == "Page" else "K3LS Repair"
     sidebar.save()
     from moniepoint_pos.shop_ui import configure as configure_ui
     configure_ui()
@@ -96,7 +96,7 @@ def configure_pos():
         "hide_images": 1, "auto_add_item_to_cart": 1, "print_format": "K3LS Receipt",
         "allow_rate_change": 0, "allow_discount_change": 0, "write_off_limit": 0})
     if not profile.item_groups:
-        for group in ("Laptop", "Accessories", "Repair Services", "Dispatch Services"):
+        for group in ("Laptop", "Accessories"):
             profile.append("item_groups", {"item_group": group})
     if not any(row.user == "Administrator" for row in profile.applicable_for_users):
         profile.append("applicable_for_users", {"user": "Administrator", "default": 1})
@@ -139,6 +139,15 @@ def validate_sale(doc, method=None):
     if not doc.custom_k3ls_condition or not doc.custom_k3ls_tested or not doc.custom_k3ls_acknowledged or not doc.custom_k3ls_disclosure_ref:
         frappe.throw("Add the condition, testing result and condition reference. Confirm the customer accepts the condition.")
     for row in doc.items:
+        if not frappe.get_cached_value("Item", row.item_code, "is_stock_item"):
+            frappe.throw("Use Repairs for repair work. The POS is for products.")
         ownership = frappe.get_cached_value("Item", row.item_code, "custom_k3ls_ownership")
         if ownership in ("Sister Owned", "Third-party Owner"):
             frappe.throw("This product belongs to someone else. Owner payouts must be set up before it can be sold.")
+    from frappe.utils import flt, getdate, today
+    total = flt(doc.rounded_total) or flt(doc.grand_total)
+    if flt(total - flt(doc.paid_amount), doc.precision("grand_total")) > 0:
+        if not doc.customer or doc.customer == "K3LS Walk-in Customer" or not doc.contact_mobile:
+            frappe.throw("For part payments, choose the customer and add their phone number.")
+        if not doc.due_date or getdate(doc.due_date) < getdate(today()):
+            frappe.throw("Choose when the remaining payment is due, today or later.")

@@ -12,6 +12,7 @@ SECTION_ICONS = {
     },
     "K3LS Owner": {
         "Payments": "wallet",
+        "Money owed": "hand-coins",
         "Suppliers": "truck",
         "Purchases": "shopping-bag",
         "Accounts": "landmark",
@@ -48,10 +49,10 @@ def apply_icons():
 def configure():
     frappe.only_for("System Manager")
     definitions = {
-        "K3LS Shop": [("POS", "point-of-sale"), ("Repairs", "K3LS Repair" if frappe.db.exists("DocType", "K3LS Repair") else "Issue"),
+        "K3LS Shop": [("POS", "point-of-sale"), ("Repairs", "shop-repairs" if frappe.db.exists("Page", "shop-repairs") else "K3LS Repair" if frappe.db.exists("DocType", "K3LS Repair") else "Issue"),
             ("Sales history", "POS Invoice"), ("Stock", "Item"), ("Customers", "Customer")],
-        "K3LS Owner": [("Payments", "Payment Entry"), ("Suppliers", "Supplier"),
-            ("Purchases", "Purchase Invoice"), ("Accounts", "Account"),
+        "K3LS Owner": [("Payments", "Payment Entry"), ("Money owed", "shop-money-owed" if frappe.db.exists("Page", "shop-money-owed") else "Sales Invoice"), ("Suppliers", "Supplier"),
+            ("Purchases", "Purchase Invoice"), ("Accounts", "shop-accounts" if frappe.db.exists("Page", "shop-accounts") else "Account"),
             ("Shop settings", "POS Profile"), ("Moniepoint settings", "Moniepoint Settings"),
             ("Terminals", "Moniepoint Terminal"), ("Terminal transactions", "Moniepoint Transaction")],
     }
@@ -63,7 +64,7 @@ def configure():
             if frappe.db.exists("Workspace Sidebar", title)
             else frappe.get_doc({"doctype": "Workspace Sidebar", "title": title}))
         sidebar.set("items", [{"type": "Link", "label": label,
-            "link_type": "Page" if target == "point-of-sale" else "DocType", "link_to": target}
+            "link_type": "Page" if target in ("point-of-sale", "shop-accounts", "shop-repairs", "shop-money-owed") else "DocType", "link_to": target}
             for label, target in entries])
         sidebar.save()
         if not frappe.db.exists("Desktop Icon", title):

@@ -6,6 +6,8 @@ from frappe.utils import flt, get_datetime
 
 class K3LSRepair(Document):
     def validate(self):
+        if self.customer == "K3LS Walk-in Customer":
+            frappe.throw("Choose the customer's name for this repair.")
         if self.is_new():
             self.received_by = frappe.session.user
             if self.status not in ("Received", "Diagnosing"):
@@ -47,8 +49,10 @@ class K3LSRepair(Document):
         if self.is_new():
             frappe.throw("Save the repair before creating an invoice.")
         # Serialize requests so a double-click cannot create two repair invoices.
-        frappe.db.sql("select name from `tabK3LS Repair` where name=%s for update", self.name)
+        self.flags.for_update = True
         self.reload()
+        if self.status == "Cancelled":
+            frappe.throw("A cancelled repair cannot be billed.")
         if self.sales_invoice:
             return self.sales_invoice
         if not self.quote_approved or not self.approval_reference or flt(self.customer_charge) <= 0:

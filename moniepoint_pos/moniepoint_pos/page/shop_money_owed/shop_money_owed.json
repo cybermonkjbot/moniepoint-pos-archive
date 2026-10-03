@@ -1,0 +1,9 @@
+{
+ "doctype": "Page",
+ "module": "Moniepoint POS",
+ "name": "shop-money-owed",
+ "page_name": "shop-money-owed",
+ "roles": [{"role": "System Manager"}],
+ "standard": "Yes",
+ "title": "Money owed"
+}

@@ -16,7 +16,7 @@ The app persists a unique merchant reference before sending a request. Unknown o
 
 Installed on the local `development.localhost` site. Open `/desk/moniepoint-settings` for credentials, `/desk/moniepoint-terminal` for terminal mappings and `/desk/moniepoint-transaction` for request records. Integration remains disabled until configured.
 
-There are no checkout UI changes or webhook endpoint. Payment-success mapping, reconciliation and authenticated webhooks remain unimplemented. No live API calls or tests were performed.
+K3LS checkout changes below record payments already received. They do not charge a terminal or settle an invoice from a provider status. Payment-success mapping, reconciliation and authenticated webhooks remain unimplemented. No live API calls or tests were performed.
 
 ## K3LS navigation
 
@@ -34,7 +34,7 @@ Repairs has Details, Progress and Price and payment sections. Customer contact, 
 
 Sales require recorded condition, testing, customer acknowledgement and a disclosure reference before submission. Third-party sales are blocked until an owner payout workflow is implemented. Device purchase and landing costs are workbook metadata, not opening-stock values or posted liabilities.
 
-Applied to the local site. Inspected the opening screen at wide and narrow widths, the repair tabs and the populated stock form. No tests, builds or bundling were run. Transactional checkout, repair billing and staff-only rendering remain unverified. Stock posting, confirmed drawer cash, staff identities and live Moniepoint credentials remain outstanding. Consignment, dispatch, instalment and owner payout controls are not complete.
+Applied to the local site. Inspected the opening screen at wide and narrow widths, the repair tabs and the populated stock form. No tests, builds or bundling were run. Transactional checkout, repair billing and staff-only rendering remain unverified. Stock posting, confirmed drawer cash, staff identities and live Moniepoint credentials remain outstanding. Consignment, dispatch, scheduled instalments and owner payout controls are not complete.
 
 ## Shop screens
 
@@ -47,3 +47,21 @@ Routine forms omit comments, activity, assignment, sharing, tags, likes and edit
 Shop uploads omit web links and the bulk privacy switch. Existing attachment privacy defaults are unchanged. The first UI configuration stores a private metadata backup named `k3ls-ui-before-cleanup.json`; restoration is manual.
 
 The till resumes an existing open session on refresh. Its displayed date follows the site timezone, and POS draft sales take the current shop date when saved. A new day does not automatically close the till, invent cash counts or reconcile money. A till that has never been opened still requires the first drawer cash count.
+
+## Products, repairs and unpaid balances
+
+The K3LS POS catalogue includes physical products only. Search does not add a product while typing. Product cards retain real stock and prices, and unavailable or unpriced products cannot be added. Existing product photos are shown when available. The Repairs button opens `/desk/shop-repairs`, a separate intake and progress workflow over K3LS Repair records. Price, approval, billing and collection remain owner controls.
+
+Part-paid sales require a named customer, phone and Pay by date. The checkout confirmation shows received money and the remaining balance. It uses ERPNext's save and server validation. Customer changes preserve entered payment amounts; changes to currency or payment methods require review.
+
+`/desk/shop-money-owed` is owner-only. It groups submitted unpaid POS and Sales Invoices by customer and currency, shows due dates and offers Take payment. Consolidated POS invoices are excluded to avoid counting the same sale twice. It shows unpaid invoices, not net customer credit or a full account statement.
+
+POS collection records money already received through ERPNext's supported update-payments method. Invoice row locks and the displayed balance reject repeated or stale requests. Repair and other Sales Invoice collections return an unsaved Payment for review. Discounts, multi-currency accounts and payment-term allocations use the standard invoice payment form. No payment is submitted by that draft-preparation endpoint.
+
+`moniepoint_pos.accounts.configure`, `moniepoint_pos.repairs.configure` and `moniepoint_pos.receivables.configure` register the three focused pages and update their existing sidebar links. They do not post transactions.
+
+## App-style presentation
+
+The first style pass uses a soft green-and-white palette, rounded cards, pill filters, larger controls and simpler tabs. Dark-theme tokens are included. Desktop retains the sidebar and two-column POS. Phones get POS, Repairs, Stock and More navigation, limited by record read permissions. The dock is hidden during dialogs, text entry and navigation-drawer use. Existing icons, routes, ledger tables and permissions are retained.
+
+This pass is source-reviewed only. The local web and database processes were stopped during implementation on 3 October 2026, and browser capture was blocked. No server, test, build or bundling process was started. Final desktop and phone rendering, dark theme, keyboard behavior and actual payment/repair completion remain unverified. Earlier screenshots show the screens before this style pass.

@@ -37,6 +37,434 @@
     min-width: 0;
 }
 
+/* Use the space freed by the shop cleanup, without enlarging invoice grids. */
+body.k3ls-shop {
+    --sidebar-width: 248px;
+    --form-sidebar-width: 216px;
+    --page-head-height: 64px;
+}
+
+.k3ls-shop .body-sidebar {
+    width: 68px;
+    padding: 12px;
+    gap: 20px;
+    transition-property: width;
+    transition-duration: 150ms;
+}
+
+.k3ls-shop .body-sidebar .body-sidebar-top,
+.k3ls-shop .body-sidebar .sidebar-items,
+.k3ls-shop .body-sidebar .sidebar-item-label,
+.k3ls-shop .body-sidebar .item-anchor,
+.k3ls-shop .body-sidebar .standard-sidebar-item {
+    transition: background-color 120ms ease;
+}
+
+.k3ls-shop .body-sidebar-placeholder {
+    width: 68px;
+}
+
+.k3ls-shop .body-sidebar-container.expanded .body-sidebar,
+.k3ls-shop .body-sidebar-container.expanded .body-sidebar-placeholder {
+    width: var(--sidebar-width);
+}
+
+.k3ls-shop .body-sidebar .sidebar-header {
+    height: 56px;
+    padding: 4px !important;
+}
+
+.k3ls-shop .body-sidebar .header-logo {
+    width: 36px;
+    height: 36px;
+}
+
+.k3ls-shop .body-sidebar .sidebar-item-label.header-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.k3ls-shop .body-sidebar .standard-sidebar-item {
+    margin-bottom: 6px;
+}
+
+.k3ls-shop .body-sidebar .item-anchor {
+    height: auto;
+    min-height: 44px;
+    padding: 10px;
+    gap: 12px;
+}
+
+.k3ls-shop .body-sidebar .sidebar-item-label {
+    font-size: 15px;
+    line-height: 1.4;
+}
+
+.k3ls-shop .body-sidebar .item-anchor .sidebar-item-icon {
+    flex: 0 0 22px;
+    padding: 0;
+}
+
+.k3ls-shop .body-sidebar .item-anchor svg {
+    width: 20px;
+    height: 20px;
+}
+
+.k3ls-shop .body-sidebar-container:not(.expanded) .item-anchor {
+    justify-content: center;
+}
+
+.k3ls-shop .body-sidebar-container:not(.expanded) .sidebar-item-label,
+.k3ls-shop .body-sidebar-container:not(.expanded) .title-container,
+.k3ls-shop .body-sidebar-container:not(.expanded) .drop-icon {
+    display: none;
+}
+
+.k3ls-shop .body-sidebar .sidebar-toggle-btn {
+    width: 32px;
+    height: 32px;
+    right: -16px;
+    opacity: 1;
+    visibility: visible;
+}
+
+.k3ls-shop .body-sidebar .item-anchor:focus-visible,
+.k3ls-shop .body-sidebar .sidebar-toggle-btn:focus-visible {
+    outline: 2px solid var(--text-color);
+    outline-offset: 2px;
+    border-radius: 8px;
+}
+
+.k3ls-shop .k3ls-page-title {
+    font-size: 20px;
+}
+
+.k3ls-shop .page-actions .btn {
+    height: 36px;
+    min-width: 36px;
+}
+
+.k3ls-shop .page-actions .btn-primary,
+.k3ls-shop .page-actions .btn-secondary {
+    padding-inline: 16px;
+}
+
+.k3ls-simple-form {
+    --input-height: 40px;
+}
+
+.k3ls-simple-form .form-grid {
+    --input-height: 28px;
+}
+
+.k3ls-simple-form .form-tabs .nav-link {
+    min-height: 48px;
+    font-size: 15px;
+}
+
+@media (min-width: 992px) {
+    .k3ls-simple-form .layout-side-section {
+        flex: 0 0 var(--form-sidebar-width);
+        width: var(--form-sidebar-width);
+        min-width: var(--form-sidebar-width);
+    }
+
+    .k3ls-simple-form .layout-main-section-wrapper {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
+
+.k3ls-accounts {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 28px;
+}
+
+.k3ls-accounts h2 {
+    font-size: 20px;
+    margin: 0 0 8px;
+}
+
+.k3ls-account-list {
+    display: grid;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.k3ls-account-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    min-height: 88px;
+    padding: 16px 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    text-align: start;
+    cursor: pointer;
+}
+
+.k3ls-account-row:hover {
+    background: var(--sidebar-hover-color);
+}
+
+.k3ls-account-row:focus-visible {
+    outline: 2px solid var(--text-color);
+    outline-offset: 2px;
+}
+
+.k3ls-account-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    border-radius: 10px;
+    background: var(--control-bg);
+}
+
+.k3ls-account-name {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+}
+
+.k3ls-account-name strong {
+    font-size: 17px;
+    overflow-wrap: anywhere;
+}
+
+.k3ls-account-balance {
+    text-align: end;
+    font-size: 15px;
+}
+
+.k3ls-accounts-updated {
+    margin-top: 20px;
+    font-size: 13px;
+}
+
+.k3ls-account-transactions {
+    overflow-x: auto;
+}
+
+/* Product sales and repair work share shop controls, not a catalogue. */
+.k3ls-shop .k3ls-pos-app {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+    gap: 16px;
+    padding: 16px;
+}
+.k3ls-shop .k3ls-pos-app > section {
+    grid-column: auto;
+    height: calc(100dvh - 140px);
+    max-height: none;
+    min-height: 480px;
+}
+.k3ls-shop .k3ls-pos-app > .items-selector,
+.k3ls-shop .k3ls-pos-app > .item-details-container,
+.k3ls-shop .k3ls-pos-app > .payment-container {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+}
+.k3ls-shop .k3ls-pos-app > .customer-cart-container {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+}
+.k3ls-shop .k3ls-pos-app .filter-section {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 20px 20px 12px;
+}
+.k3ls-shop .k3ls-pos-app .filter-section > .label,
+.k3ls-shop .k3ls-pos-app .filter-section > .search-field {
+    grid-column: 1;
+    margin: 0;
+}
+.k3ls-shop .k3ls-pos-app .search-field input {
+    height: 44px;
+    font-size: 15px;
+}
+.k3ls-pos-categories,
+.k3ls-repair-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.k3ls-pos-categories {padding: 0 20px 16px;}
+.k3ls-pos-categories button,
+.k3ls-repair-filters button {
+    min-height: 40px;
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--fg-color);
+    color: var(--text-color);
+}
+.k3ls-pos-categories button.selected,
+.k3ls-repair-filters button.selected {
+    background: var(--control-bg);
+    font-weight: 600;
+}
+.k3ls-shop .k3ls-pos-app .items-container.k3ls-product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    align-content: start;
+    gap: 12px;
+    padding: 4px 20px 20px;
+    overflow-y: auto;
+}
+.k3ls-shop .k3ls-product-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: start;
+    gap: 8px;
+    min-height: 200px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: var(--text-color);
+    background: var(--card-bg);
+}
+.k3ls-shop .k3ls-product-card:disabled {cursor: default;}
+.k3ls-shop .k3ls-product-card:disabled .k3ls-product-symbol {opacity: .6;}
+.k3ls-product-symbol,
+.k3ls-repair-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: var(--control-bg);
+    border-radius: 10px;
+}
+.k3ls-product-card strong {font-size: 15px; line-height: 1.4; overflow-wrap: anywhere;}
+.k3ls-product-card small {color: var(--text-muted);}
+.k3ls-product-price {font-size: 17px; font-weight: 600; margin-top: auto;}
+.k3ls-product-stock {font-size: 13px;}
+.k3ls-shop .k3ls-pos-app .customer-section {padding: 16px;}
+.k3ls-shop .k3ls-pos-app .customer-name {font-size: 15px !important; white-space: normal;}
+.k3ls-shop .k3ls-pos-app .abs-cart-container {padding: 18px;}
+.k3ls-shop .k3ls-pos-app .abs-cart-container .no-item-wrapper {
+    background: transparent;
+    color: var(--text-muted);
+}
+.k3ls-shop .k3ls-pos-app .abs-cart-container .grand-total-container {font-size: 22px;}
+.k3ls-shop .k3ls-pos-app .checkout-btn,
+.k3ls-shop .k3ls-pos-app .edit-cart-btn,
+.k3ls-shop .k3ls-pos-app .submit-order-btn {
+    width: 100%;
+    min-height: 48px;
+    border: 0;
+    border-radius: 8px;
+}
+.k3ls-shop .k3ls-pos-app .checkout-btn:disabled {cursor: default;}
+.k3ls-shop .k3ls-pos-app .payment-container {padding: 20px; overflow-y: auto;}
+.k3ls-shop .k3ls-pos-app .payment-split-container {min-height: 360px;}
+.k3ls-shop .k3ls-pos-app .number-pad {position: static !important;}
+.k3ls-shop .k3ls-pos-app .mode-of-payment {min-height: 48px;}
+.k3ls-shop .k3ls-pos-app .submit-order-btn {flex-shrink: 0;}
+.k3ls-shop .k3ls-pos-app .past-order-list,
+.k3ls-shop .k3ls-pos-app .past-order-summary {grid-column: auto; grid-row: auto;}
+.k3ls-shop .k3ls-shop-date {padding-inline: 20px; margin: 4px 0 0 !important;}
+
+.k3ls-repairs,
+.k3ls-money-owed {padding: 24px; max-width: 1200px; margin: auto;}
+.k3ls-repair-toolbar {display: grid; gap: 20px; margin-bottom: 24px;}
+.k3ls-repair-toolbar > input {max-width: 420px; height: 44px;}
+.k3ls-repair-results,
+.k3ls-owed-list {display: grid; gap: 12px;}
+.k3ls-repair-row,
+.k3ls-owed-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 18px;
+    min-height: 100px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    text-align: start;
+}
+.k3ls-repair-device,
+.k3ls-owed-name {display: grid; gap: 5px; flex: 1; min-width: 0; overflow-wrap: anywhere;}
+.k3ls-repair-device strong,
+.k3ls-owed-name strong {font-size: 17px;}
+.k3ls-repair-device span,
+.k3ls-owed-name span {font-size: 14px;}
+.k3ls-repair-device small,
+.k3ls-repair-due {color: var(--text-muted);}
+.k3ls-repair-status {padding: 6px 10px; border-radius: 6px; background: var(--control-bg);}
+.k3ls-repair-pager {display: flex; gap: 12px; margin-top: 20px;}
+.k3ls-shop-empty {grid-column: 1 / -1; padding: 72px 16px; text-align: center; width: 100%;}
+.k3ls-shop-empty > span {display: block; margin-bottom: 16px;}
+.k3ls-shop-empty h2 {font-size: 20px; margin-bottom: 16px;}
+.k3ls-repair-dialog {--input-height: 40px;}
+.k3ls-repair-steps {display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; margin: 20px 0;}
+.k3ls-repair-steps li {padding: 8px 10px; border-radius: 6px; background: var(--control-bg);}
+.k3ls-repair-steps li.current {background: var(--btn-primary); color: var(--neutral); font-weight: 600;}
+.k3ls-repair-steps li.done {font-weight: 600;}
+.k3ls-repair-summary {display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px 20px;}
+.k3ls-repair-summary dd {white-space: pre-wrap; overflow-wrap: anywhere; margin: 0;}
+.k3ls-repair-actions {display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px;}
+.k3ls-repair-actions .btn {min-height: 40px;}
+.k3ls-owed-heading h2 {font-size: 20px;}
+.k3ls-owed-total {display: block; font-size: 30px; margin: 16px 0 8px;}
+.k3ls-money-owed > input {max-width: 420px; height: 44px; margin: 24px 0 16px;}
+.k3ls-owed-amount {font-size: 18px;}
+.k3ls-owed-invoice {display: grid; gap: 8px; padding: 20px 0; border-bottom: 1px solid var(--border-color);}
+.k3ls-owed-invoice > div {display: flex; gap: 10px; margin-top: 8px;}
+.k3ls-pos-app button:focus-visible,
+.k3ls-repairs button:focus-visible,
+.k3ls-money-owed button:focus-visible {
+    outline: 2px solid var(--text-color);
+    outline-offset: 2px;
+}
+@media (max-width: 767px) {
+    .k3ls-shop .k3ls-pos-app {grid-template-columns: 1fr; padding: 12px; gap: 12px;}
+    .k3ls-shop .k3ls-pos-app > section {height: auto; min-height: 0; max-height: none; grid-column: 1; grid-row: auto;}
+    .k3ls-shop .k3ls-pos-app > .items-selector {min-height: 300px; max-height: 55dvh;}
+    .k3ls-shop .k3ls-pos-app > .customer-cart-container {min-height: 390px;}
+    .k3ls-shop .k3ls-pos-app .cart-container {min-height: 320px; flex: 1;}
+    .k3ls-shop .k3ls-pos-app .items-container.k3ls-product-grid {grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 4px 12px 12px; gap: 8px;}
+    .k3ls-shop .k3ls-product-card {padding: 12px; min-height: 190px;}
+    .k3ls-shop .k3ls-pos-app .filter-section {padding: 16px 12px 12px;}
+    .k3ls-pos-categories {padding: 0 12px 12px;}
+    .k3ls-shop .k3ls-pos-app .payment-split-container {flex-direction: column; gap: 16px;}
+    .k3ls-shop .k3ls-pos-app .payment-container-left,
+    .k3ls-shop .k3ls-pos-app .payment-container-right {width: 100%;}
+    .k3ls-shop .k3ls-pos-app .payment-container .totals {flex-wrap: wrap; gap: 12px;}
+    .k3ls-repairs,
+    .k3ls-money-owed {padding: 16px;}
+    .k3ls-repair-filters {flex-wrap: nowrap; overflow-x: auto; padding-bottom: 8px;}
+    .k3ls-repair-filters button {flex-shrink: 0;}
+    .k3ls-repair-row,
+    .k3ls-owed-row {flex-wrap: wrap; padding: 14px; gap: 12px;}
+    .k3ls-repair-device,
+    .k3ls-owed-name {flex-basis: calc(100% - 60px);}
+    .k3ls-repair-icon {flex-shrink: 0;}
+    .k3ls-repair-due,
+    .k3ls-owed-due {flex: 1;}
+    .k3ls-repair-summary {grid-template-columns: 1fr; gap: 4px;}
+    .k3ls-repair-summary dd {margin-bottom: 12px;}
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .k3ls-shop .body-sidebar,
+    .k3ls-shop .body-sidebar * {
+        transition: none;
+    }
+}
+
 .k3ls-master-form textarea[data-fieldname="supplier_details"],
 .k3ls-master-form textarea[data-fieldname="customer_details"] {
     height: 120px !important;
@@ -47,9 +475,344 @@
     display: none !important;
 }
 
+/* App presentation is limited to the shop's routes. Keep ledger grids intact. */
+body.k3ls-shop.k3ls-app-screen {
+    --k3ls-accent: #236652;
+    --k3ls-accent-hover: #194e3e;
+    --k3ls-accent-soft: #e3f2eb;
+    --k3ls-canvas: #f5f7f4;
+    --k3ls-surface: #ffffff;
+    --k3ls-line: #e2e8e3;
+    --k3ls-soft: #eff3ef;
+    --k3ls-ink: #253c32;
+    --k3ls-muted: #596b61;
+    --k3ls-shadow: 0 4px 18px rgb(35 64 48 / 4%);
+    --bg-color: var(--k3ls-canvas);
+    --fg-color: var(--k3ls-surface);
+    --card-bg: var(--k3ls-surface);
+    --modal-bg: var(--k3ls-surface);
+    --control-bg: var(--k3ls-soft);
+    --border-color: var(--k3ls-line);
+    --text-color: var(--k3ls-ink);
+    --text-muted: var(--k3ls-muted);
+    --btn-primary: var(--k3ls-accent);
+    --sidebar-hover-color: var(--k3ls-soft);
+    --sidebar-active-color: var(--k3ls-accent-soft);
+    background: var(--k3ls-canvas);
+    color: var(--k3ls-ink);
+}
+[data-theme="dark"] body.k3ls-shop.k3ls-app-screen,
+body.k3ls-shop.k3ls-app-screen[data-theme="dark"] {
+    --k3ls-accent: #a4dfc3;
+    --k3ls-accent-hover: #bee9d3;
+    --k3ls-accent-soft: #263f33;
+    --k3ls-canvas: #18201b;
+    --k3ls-surface: #202b24;
+    --k3ls-line: #35443b;
+    --k3ls-soft: #2a372e;
+    --k3ls-ink: #edf4ee;
+    --k3ls-muted: #b2c2b7;
+    --k3ls-shadow: none;
+}
+.k3ls-app-screen .page-head {
+    background: var(--k3ls-canvas);
+    border-bottom: 0;
+    transition: none;
+}
+.k3ls-app-screen .k3ls-page-title {font-size: 23px; font-weight: 650; letter-spacing: -.4px;}
+.k3ls-app-screen .body-sidebar {
+    background: var(--k3ls-surface);
+    border-color: var(--k3ls-line);
+}
+.k3ls-app-screen .body-sidebar .standard-sidebar-item {border-radius: 14px;}
+.k3ls-app-screen .body-sidebar .item-anchor {border-radius: 14px; color: var(--k3ls-muted);}
+.k3ls-app-screen .body-sidebar .active-sidebar {
+    background: var(--k3ls-accent-soft);
+    box-shadow: none;
+}
+.k3ls-app-screen .body-sidebar .active-sidebar .item-anchor {color: var(--k3ls-accent); font-weight: 600;}
+.k3ls-app-screen .body-sidebar .item-anchor .sidebar-item-icon {
+    flex-basis: 30px;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    background: var(--k3ls-soft);
+    color: var(--k3ls-muted) !important;
+}
+.k3ls-app-screen .body-sidebar .active-sidebar .sidebar-item-icon {
+    color: var(--k3ls-accent) !important;
+    background: var(--k3ls-surface);
+}
+.k3ls-app-screen .body-sidebar .item-anchor {padding: 8px; gap: 10px;}
+.k3ls-app-screen .body-sidebar .item-anchor svg {--icon-stroke: currentColor;}
+.k3ls-app-screen .btn:not(.btn-xs) {border-radius: 12px;}
+.k3ls-app-screen .page-actions .btn {height: 42px; min-width: 42px; font-weight: 550;}
+.k3ls-app-screen .btn.btn-primary,
+.k3ls-app-screen .k3ls-pos-app .checkout-btn,
+.k3ls-app-screen .k3ls-pos-app .submit-order-btn {
+    background: var(--k3ls-accent);
+    color: var(--k3ls-surface);
+}
+.k3ls-app-screen .k3ls-pos-app .payment-container .border-primary {
+    border-color: var(--k3ls-line);
+    background: var(--k3ls-accent-soft);
+}
+.k3ls-app-screen .btn.btn-primary:hover,
+.k3ls-app-screen .btn.btn-primary:active {
+    background: var(--k3ls-accent-hover) !important;
+    color: var(--k3ls-surface) !important;
+}
+.k3ls-app-screen .btn:disabled,
+.k3ls-app-screen .k3ls-pos-app .checkout-btn:disabled {
+    background: var(--k3ls-soft);
+    color: var(--k3ls-muted);
+    opacity: .65;
+}
+.k3ls-app-screen .k3ls-simple-form .layout-main-section,
+.k3ls-app-screen .k3ls-simple-list .layout-main-section {
+    border: 1px solid var(--k3ls-line);
+    border-radius: 20px;
+    background: var(--k3ls-surface);
+    box-shadow: var(--k3ls-shadow);
+}
+.k3ls-app-screen .k3ls-simple-form .form-tabs-list {
+    padding: 8px;
+    border-bottom: 0;
+    border-radius: 20px 20px 0 0;
+}
+@media (min-width: 768px) {
+    .k3ls-app-screen .k3ls-simple-form .layout-main,
+    .k3ls-app-screen .k3ls-simple-list .layout-main {padding: 8px 16px 24px;}
+}
+.k3ls-app-screen .k3ls-simple-form .form-tabs .nav-link {
+    min-height: 42px;
+    padding: 10px 16px;
+    margin: 0 3px;
+    border-radius: 12px;
+    color: var(--k3ls-muted);
+}
+.k3ls-app-screen .k3ls-simple-form .form-tabs .nav-link.active {
+    background: var(--k3ls-accent-soft);
+    color: var(--k3ls-accent);
+    border-bottom: 0;
+    font-weight: 600;
+    padding-bottom: 10px;
+}
+.k3ls-app-screen .k3ls-simple-form .form-control,
+.k3ls-app-screen .modal .form-control,
+.k3ls-app-screen .k3ls-repair-toolbar > input,
+.k3ls-app-screen .k3ls-money-owed > input,
+.k3ls-app-screen .k3ls-pos-app .search-field input {
+    border-radius: 12px;
+    background: var(--k3ls-soft);
+    color: var(--k3ls-ink);
+}
+.k3ls-app-screen .has-error .form-control,
+.k3ls-app-screen .form-control[aria-invalid="true"] {border-color: var(--red-500);}
+.k3ls-app-screen .k3ls-simple-form .form-grid .form-control {border-radius: 6px;}
+.k3ls-app-screen input::placeholder,
+.k3ls-app-screen textarea::placeholder {color: var(--k3ls-muted); opacity: 1;}
+.k3ls-app-screen .k3ls-simple-list .list-row:not(.list-row-head) {min-height: 58px;}
+.k3ls-app-screen .k3ls-simple-list .list-row-container {border-radius: 12px;}
+.k3ls-app-screen .k3ls-simple-list .list-row .level-right {background: var(--k3ls-surface);}
+.k3ls-app-screen .k3ls-simple-list .list-row-container:hover,
+.k3ls-app-screen .k3ls-simple-list .list-row-container:hover .level-right {background: var(--k3ls-soft);}
+.k3ls-app-screen .modal-content {
+    border: 1px solid var(--k3ls-line);
+    border-radius: 22px;
+    background: var(--k3ls-surface);
+}
+.k3ls-app-screen .modal-header {border-radius: 22px 22px 0 0; padding: 18px 22px;}
+.k3ls-app-screen .modal-footer {border-radius: 0 0 22px 22px;}
+.k3ls-app-screen .modal-footer .btn {min-height: 44px; padding: 10px 18px;}
+.k3ls-app-screen .k3ls-pos-app > section {border-radius: 20px;}
+.k3ls-app-screen .k3ls-pos-app .items-selector,
+.k3ls-app-screen .k3ls-pos-app .payment-container,
+.k3ls-app-screen .k3ls-pos-app .customer-section,
+.k3ls-app-screen .k3ls-pos-app .cart-container {
+    background: var(--k3ls-surface);
+    border: 1px solid var(--k3ls-line);
+    border-radius: 20px;
+    box-shadow: var(--k3ls-shadow);
+}
+.k3ls-app-screen .k3ls-pos-categories button,
+.k3ls-app-screen .k3ls-repair-filters button {
+    border-radius: 999px;
+    background: var(--k3ls-surface);
+    color: var(--k3ls-muted);
+}
+.k3ls-app-screen .k3ls-pos-categories button.selected,
+.k3ls-app-screen .k3ls-repair-filters button.selected {
+    background: var(--k3ls-accent-soft);
+    color: var(--k3ls-accent);
+    border-color: transparent;
+}
+.k3ls-app-screen .k3ls-product-card {
+    border-radius: 18px;
+    box-shadow: var(--k3ls-shadow);
+    transition: background-color 120ms ease;
+}
+.k3ls-app-screen .k3ls-product-card:not(:disabled):hover {background: var(--k3ls-accent-soft);}
+.k3ls-app-screen .k3ls-product-symbol {width: 48px; height: 48px; border-radius: 14px;}
+.k3ls-app-screen .k3ls-product-price {color: var(--k3ls-accent);}
+.k3ls-app-screen .k3ls-product-stock {
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: var(--k3ls-soft);
+    color: var(--k3ls-muted);
+}
+.k3ls-app-screen .k3ls-product-photo {
+    width: 100%;
+    height: 100px;
+    object-fit: contain;
+    border-radius: 12px;
+}
+.k3ls-app-screen .k3ls-pos-app .number-pad .numpad-btn,
+.k3ls-app-screen .k3ls-pos-app .mode-of-payment {
+    border-radius: 14px;
+    box-shadow: none;
+}
+.k3ls-app-screen .k3ls-pos-app .number-pad .numpad-btn {min-height: 44px;}
+.k3ls-app-screen .k3ls-pos-app .checkout-btn,
+.k3ls-app-screen .k3ls-pos-app .edit-cart-btn,
+.k3ls-app-screen .k3ls-pos-app .submit-order-btn {border-radius: 14px; font-weight: 600;}
+.k3ls-app-screen .k3ls-repair-row,
+.k3ls-app-screen .k3ls-owed-row,
+.k3ls-app-screen .k3ls-account-row {border-radius: 18px; box-shadow: var(--k3ls-shadow);}
+.k3ls-app-screen .k3ls-repair-row:hover,
+.k3ls-app-screen .k3ls-owed-row:hover,
+.k3ls-app-screen .k3ls-account-row:hover {background: var(--k3ls-accent-soft);}
+.k3ls-app-screen .k3ls-account-icon,
+.k3ls-app-screen .k3ls-repair-icon {
+    border-radius: 14px;
+    background: var(--k3ls-accent-soft);
+    color: var(--k3ls-accent);
+    --icon-stroke: currentColor;
+}
+.k3ls-app-screen .k3ls-repair-status {border-radius: 999px;}
+.k3ls-app-screen .k3ls-repair-status[data-status="Ready for collection"] {
+    background: var(--k3ls-accent-soft);
+    color: var(--k3ls-accent);
+}
+.k3ls-app-screen .k3ls-owed-heading {
+    padding: 24px;
+    border-radius: 20px;
+    background: var(--k3ls-accent-soft);
+    color: var(--k3ls-ink);
+}
+.k3ls-app-screen .k3ls-owed-heading p {margin-bottom: 0;}
+.k3ls-app-screen .k3ls-owed-total {color: var(--k3ls-accent); font-variant-numeric: tabular-nums;}
+.k3ls-app-screen .k3ls-shop-empty > span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 20px;
+    border-radius: 22px;
+    background: var(--k3ls-accent-soft);
+    color: var(--k3ls-accent);
+    --icon-stroke: currentColor;
+}
+.k3ls-app-screen .k3ls-shop-empty h2 {font-weight: 600;}
+.k3ls-app-screen :is(a, button, input, textarea, select):focus-visible {
+    outline: 2px solid var(--k3ls-ink);
+    outline-offset: 3px;
+}
+.k3ls-app-dock {display: none;}
 @media (max-width: 767px) {
+    .k3ls-app-screen .main-section {
+        padding-bottom: calc(88px + env(safe-area-inset-bottom));
+        scroll-padding-bottom: calc(100px + env(safe-area-inset-bottom));
+    }
+    .k3ls-app-screen .k3ls-page-title {font-size: 21px;}
+    .k3ls-app-screen .k3ls-app-dock {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1010;
+        min-height: 72px;
+        padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--k3ls-line);
+        background: var(--k3ls-surface);
+    }
+    .k3ls-app-dock > a,
+    .k3ls-app-dock > button {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        min-height: 52px;
+        flex: 1;
+        border: 0;
+        border-radius: 14px;
+        background: transparent;
+        color: var(--k3ls-muted);
+        font-size: 12px;
+        font-weight: 550;
+        text-decoration: none;
+        --icon-stroke: currentColor;
+    }
+    .k3ls-app-dock > .selected {background: var(--k3ls-accent-soft); color: var(--k3ls-accent);}
+    .k3ls-app-screen:has(.modal.show) .k3ls-app-dock,
+    .k3ls-app-screen.k3ls-drawer-open .k3ls-app-dock,
+    .k3ls-app-screen:has(input:focus, textarea:focus, [contenteditable="true"]:focus) .k3ls-app-dock {display: none;}
+    .k3ls-app-screen .k3ls-simple-form .layout-main-section,
+    .k3ls-app-screen .k3ls-simple-list .layout-main-section {border-radius: 16px;}
+    .k3ls-app-screen .k3ls-pos-app {padding: 8px;}
+    .k3ls-app-screen .k3ls-owed-heading {padding: 20px;}
+    .k3ls-app-screen .k3ls-pos-categories {flex-wrap: nowrap; overflow-x: auto;}
+    .k3ls-app-screen .k3ls-pos-categories button {flex-shrink: 0;}
+    .k3ls-app-screen .modal-dialog {margin: 12px 8px;}
+    .k3ls-app-screen .modal-header {padding: 14px 16px;}
+    .k3ls-app-screen .modal .form-control {font-size: 16px;}
+}
+@media (prefers-reduced-motion: reduce) {
+    .k3ls-app-screen .k3ls-product-card {transition: none;}
+}
+
+@media (max-width: 767px) {
+    body.k3ls-shop {
+        --sidebar-width: min(280px, calc(100vw - 56px));
+    }
+
+    .k3ls-shop .body-sidebar-container:not(.expanded) .body-sidebar {
+        width: 0;
+        padding: 0;
+    }
+
+    .k3ls-shop .body-sidebar-container.expanded .body-sidebar-placeholder {
+        width: 0;
+    }
+
+    .k3ls-shop .body-sidebar .sidebar-toggle-btn {
+        right: 8px;
+    }
+
     .k3ls-shop .k3ls-page-title {
         max-width: 42vw;
-        font-size: var(--text-base);
+        font-size: 18px;
+    }
+
+    .k3ls-accounts {
+        padding: 20px 16px;
+    }
+
+    .k3ls-account-row {
+        flex-wrap: wrap;
+        padding: 16px;
+        gap: 12px;
+    }
+
+    .k3ls-account-balance {
+        width: calc(100% - 56px);
+        margin-inline-start: 56px;
+        text-align: start;
+        order: 1;
     }
 }

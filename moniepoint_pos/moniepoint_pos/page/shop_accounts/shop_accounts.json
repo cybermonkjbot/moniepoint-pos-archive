@@ -1,0 +1,9 @@
+{
+ "doctype": "Page",
+ "module": "Moniepoint POS",
+ "name": "shop-accounts",
+ "page_name": "shop-accounts",
+ "roles": [{"role": "System Manager"}],
+ "standard": "Yes",
+ "title": "Accounts"
+}
