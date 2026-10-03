@@ -1,3 +1,4 @@
+param([string]$PackageRoot)
 $ErrorActionPreference = 'Stop'
 try {
     $repairRoot = [IO.Path]::GetFullPath($PSScriptRoot)
@@ -12,10 +13,29 @@ try {
             throw "Changed repair file: $($file.path)"
         }
     }
-    $packageRoot = Split-Path -Parent $repairRoot
+    if (-not $PackageRoot) {
+        # Windows Extract All can add another wrapper folder. Check ancestors
+        # for this exact backup rather than requiring one fixed folder depth.
+        $candidate = $repairRoot
+        while ($candidate) {
+            $candidateManifest = Join-Path $candidate 'manifest.json'
+            if ((Test-Path -LiteralPath $candidateManifest -PathType Leaf) -and
+                (Get-FileHash -LiteralPath $candidateManifest -Algorithm SHA256).Hash.ToLowerInvariant() -eq $manifest.backup_manifest_sha256) {
+                $PackageRoot = $candidate
+                break
+            }
+            $parent = Split-Path -Parent $candidate
+            if ($parent -eq $candidate) { break }
+            $candidate = $parent
+        }
+    }
+    if (-not $PackageRoot) {
+        throw 'No matching backup was found above this repair folder. Place the repair anywhere inside K3LS-transfer-20261003-170202, or pass -PackageRoot with the original backup folder.'
+    }
+    $packageRoot = [IO.Path]::GetFullPath($PackageRoot)
     $originalManifest = Join-Path $packageRoot 'manifest.json'
     if (-not (Test-Path -LiteralPath $originalManifest -PathType Leaf)) {
-        throw 'Move this entire repair folder inside the extracted K3LS-transfer-20261003-170202 folder, then run Resume K3LS.vbs again.'
+        throw ('The selected backup folder has no manifest.json: ' + $packageRoot)
     }
     if ((Get-FileHash -LiteralPath $originalManifest -Algorithm SHA256).Hash.ToLowerInvariant() -ne $manifest.backup_manifest_sha256) {
         throw 'This repair belongs to K3LS-transfer-20261003-170202. The backup manifest does not match. No changes were made.'
