@@ -31,7 +31,7 @@ def main():
     scripts = Path(__file__).resolve().parent
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    name = "K3LS-Installer-Fix-20261003-v3"
+    name = "K3LS-Installer-Fix-20261003-v4"
     destination = output / name
     archive_path = output / f"{name}.zip"
     if destination.exists() or archive_path.exists():

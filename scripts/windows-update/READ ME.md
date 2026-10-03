@@ -16,6 +16,7 @@ their own folder so the archive fix remains active.
 
 This update corrects the uploaded-file archive check for verified Mac metadata.
 It creates the log and lock folders before checking the restored site.
+Bench cache configuration runs as the `k3ls` user, not root.
 It uses the same Linux environment as the original transfer. The database restore
 completion marker preserves the database already restored, including logins.
 The installer retries missing dependencies, restores the actual uploaded files,

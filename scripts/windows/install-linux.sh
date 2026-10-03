@@ -92,7 +92,8 @@ chmod 0755 "$K3LS_ROOT" "$K3LS_ROOT/runtime" "$K3LS_ROOT/bin"
 chmod -R a+rX "$K3LS_ROOT/runtime" "$K3LS_ROOT/bin"
 chown -R k3ls:k3ls "$K3LS_BENCH/logs" "$K3LS_BENCH/config"
 cd "$K3LS_BENCH"
-bench setup redis
+echo "Configuring the shop cache as the k3ls user..."
+/usr/sbin/runuser -u k3ls -- /usr/bin/env PATH="$PATH" "$K3LS_ROOT/bin/bench" setup redis
 chown -R k3ls:k3ls "$K3LS_BENCH/config"
 for K3LS_FILE in "$K3LS_WINDOWS"/units/*; do install -m 0644 "$K3LS_FILE" /etc/systemd/system/; done
 install -m 0755 "$K3LS_WINDOWS/keep-alive.sh" "$K3LS_ROOT/keep-alive.sh"
@@ -100,6 +101,7 @@ install -m 0644 "$K3LS_WINDOWS/nginx.conf" /etc/nginx/sites-available/k3ls
 ln -sfn /etc/nginx/sites-available/k3ls /etc/nginx/sites-enabled/k3ls
 systemctl daemon-reload
 systemctl enable mariadb nginx k3ls.target
+echo "Starting the shop services..."
 systemctl restart nginx
 systemctl start k3ls.target
 for K3LS_ATTEMPT in {1..60}; do
@@ -110,5 +112,7 @@ for K3LS_ATTEMPT in {1..60}; do
     fi
     sleep 1
 done
-echo "Installed, but the app did not respond. Run: journalctl -u k3ls-web -n 40" >&2
+echo "Installed files, but the app did not respond. Service details:" >&2
+systemctl --no-pager --full status k3ls-web k3ls-cache k3ls-queue k3ls-realtime nginx || true
+journalctl --no-pager -n 40 -u k3ls-web -u k3ls-cache -u k3ls-queue -u k3ls-realtime -u nginx || true
 exit 1
