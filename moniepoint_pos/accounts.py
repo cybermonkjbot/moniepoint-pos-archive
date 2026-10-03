@@ -6,13 +6,33 @@ from frappe.utils import now_datetime, today
 COMPANY = "K3LS LIMITED"
 
 
+def checkout_accounts():
+    """Only accounts backing the supported shop payment methods."""
+    from moniepoint_pos.checkout import PAYMENT_METHODS, PROFILE
+    profile = frappe.get_doc("POS Profile", PROFILE)
+    profile.check_permission("read")
+    if profile.company != COMPANY:
+        frappe.throw("This checkout belongs to another company.")
+    names = []
+    for method in PAYMENT_METHODS:
+        if not any(row.mode_of_payment == method for row in profile.payments):
+            continue
+        payment = frappe.get_doc("Mode of Payment", method)
+        payment.check_permission("read")
+        if not payment.enabled:
+            continue
+        names.extend(row.default_account for row in payment.accounts if row.company == COMPANY and row.default_account)
+    return names
+
+
 @frappe.whitelist(methods=["GET"])
 def overview():
     frappe.only_for("System Manager")
     frappe.get_doc("Company", COMPANY).check_permission("read")
     accounts = frappe.get_list(
         "Account",
-        filters={"company": COMPANY, "is_group": 0, "disabled": 0, "account_type": ["in", ["Cash", "Bank"]]},
+        filters={"company": COMPANY, "is_group": 0, "disabled": 0, "name": ["in", checkout_accounts()],
+            "account_type": ["in", ["Cash", "Bank"]]},
         fields=["name", "account_name", "account_type", "account_currency"],
         order_by="account_type desc, account_name asc",
         limit_page_length=100,
@@ -34,6 +54,7 @@ def overview():
         row = balances.get(account.name)
         account.balance = float(row.balance or 0) if row else None
         account.has_transactions = bool(row and row.transactions)
+        account.label = "Moniepoint" if account.account_name == "Moniepoint MFB" else account.account_name
     return {"accounts": accounts, "can_read_balances": can_read_balances,
         "as_of": today(), "updated_at": now_datetime().isoformat()}
 
@@ -43,8 +64,8 @@ def transactions(account):
     frappe.only_for("System Manager")
     doc = frappe.get_doc("Account", account)
     doc.check_permission("read")
-    if doc.company != COMPANY or doc.is_group or doc.account_type not in ("Cash", "Bank"):
-        frappe.throw("Choose a shop cash or bank account.")
+    if doc.company != COMPANY or doc.is_group or doc.account_type not in ("Cash", "Bank") or doc.name not in checkout_accounts():
+        frappe.throw("Choose Cash or Moniepoint.")
     return frappe.get_list("GL Entry",
         filters={"company": COMPANY, "account": account, "is_cancelled": 0, "posting_date": ["<=", today()]},
         fields=["posting_date", "remarks", "voucher_no", "debit_in_account_currency", "credit_in_account_currency"],

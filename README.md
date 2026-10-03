@@ -14,7 +14,7 @@ Authenticated POST methods:
 
 The app persists a unique merchant reference before sending a request. Unknown outcomes stay unresolved and block further charges for that invoice, including concurrent requests. There is no automatic retry, refund, cancellation or invoice settlement. An accepted request is not proof of payment. Do not manually submit an invoice as paid based only on this app's provider status.
 
-Installed on the local `development.localhost` site. Open `/desk/moniepoint-settings` for credentials, `/desk/moniepoint-terminal` for terminal mappings and `/desk/moniepoint-transaction` for request records. Integration remains disabled until configured.
+Installed on the local `development.localhost` site. Moniepoint Settings contains Connection, Terminals and Payment requests. Terminal edits use a dialog and request/provider statuses are separate. Integration remains disabled until configured.
 
 K3LS checkout changes below record payments already received. They do not charge a terminal or settle an invoice from a provider status. Payment-success mapping, reconciliation and authenticated webhooks remain unimplemented. No live API calls or tests were performed.
 
@@ -38,11 +38,11 @@ Applied to the local site. Inspected the opening screen at wide and narrow width
 
 ## Shop screens
 
-`moniepoint_pos.shop_ui.configure` applies short labels and focused list columns. The browser customization is active only on the K3LS site. Products, Repairs, Customers, Suppliers, Purchases, Sales, Payments and till settings hide unrelated fields. An owner can reveal the original fields through Menu > More fields without saving any record.
+`moniepoint_pos.shop_ui.configure` applies short labels and focused list columns. The browser customization is active only on the K3LS site. Products, Repairs, Customers, Suppliers, Purchases, Sales, Money in/out and Checkout settings hide unrelated fields. An owner can reveal the original fields through Menu > More fields without saving any record.
 
 Headers use one page heading instead of breadcrumbs. Everyday lists open as lists rather than the last report or board view. The view selector, saved-filter selector and supplier/customer report and creation menus are not shown in the header. Owners can open the report from the list menu. Essential filters, exports, confirmations and accounting permissions remain intact.
 
-Routine forms omit comments, activity, assignment, sharing, tags, likes and edited-by panels. Files and product photos remain available. Repairer assignment is a repair field, not a generic task. The K3LS sidebar menu omits Website, Edit sidebar, Display, Session defaults and Help.
+Routine forms omit comments, activity, assignment, sharing, tags, likes and edited-by panels. Product photos remain available. Files are hidden on connection, terminal, request, checkout and account forms. Repairer assignment is a repair field, not a generic task. Notifications sit beside the signed-in account, without Events or What's New. The K3LS sidebar menu omits Website, Edit sidebar, Display, Session defaults and Help.
 
 Shop uploads omit web links and the bulk privacy switch. Existing attachment privacy defaults are unchanged. The first UI configuration stores a private metadata backup named `k3ls-ui-before-cleanup.json`; restoration is manual.
 
@@ -62,6 +62,18 @@ POS collection records money already received through ERPNext's supported update
 
 ## App-style presentation
 
-The first style pass uses a soft green-and-white palette, rounded cards, pill filters, larger controls and simpler tabs. Dark-theme tokens are included. Desktop retains the sidebar and two-column POS. Phones get POS, Repairs, Stock and More navigation, limited by record read permissions. The dock is hidden during dialogs, text entry and navigation-drawer use. Existing icons, routes, ledger tables and permissions are retained.
+Shop screens use white surfaces and blue highlights. Owner screens use dark navy surfaces and light text. Desktop retains the sidebar and two-column POS. Phones get POS, Repairs, Stock and More navigation, limited by record read permissions. POS has Products/Basket panels; new repair intake has Device/Problem/Customer panels with a fixed primary action. The dock is hidden during dialogs, text entry and navigation-drawer use. Existing ledger tables and permissions are retained.
 
-This pass is source-reviewed only. The local web and database processes were stopped during implementation on 3 October 2026, and browser capture was blocked. No server, test, build or bundling process was started. Final desktop and phone rendering, dark theme, keyboard behavior and actual payment/repair completion remain unverified. Earlier screenshots show the screens before this style pass.
+The supplied loading logo is cropped vertically from 447 x 447 to 447 x 93, with the original untouched. Moniepoint uses its real wordmark in Settings and brand mark in the sidebar. Owner Users opens ERPNext's existing user management; no separate staff directory or payroll implementation is included.
+
+Rendered checks reuse the running local app. No tests, builds, bundling or additional servers were run. No stock, customer, user, repair, terminal or payment records were created during checks. See `design-qa.md` for evidence and remaining verification gaps.
+
+## Checkout settings
+
+`moniepoint_pos.checkout.configure` changes only K3LS Shop's checkout configuration. It keeps Cash as the default and Moniepoint as the other payment method. Existing FCMB, Sterling and UBA bank masters and all invoices/shifts remain intact. The previous profile is stored in private `k3ls-checkout-before-two-methods.json` for manual restoration.
+
+Checkout settings shows two read-only payment cards. Country, active status, receipt options, currency, price list, ledger accounts, write-offs, product filters and stock controls remain configured but hidden in the routine view. Part payments remain enabled, stock validation stays on, and payment amounts are not assumed received automatically. Existing drafts with nonzero legacy payment amounts retain those choices. Accounts shows only the accounts backing Cash and Moniepoint, with balances and transaction details. The date and refresh-time lines are omitted. Other bank accounts and their history remain in ERPNext.
+
+Tax setup controls, including item-row tax templates, are hidden across the routine shop forms. Tax rules, invoice calculations and nonzero amount disclosures are not removed or reset. More fields restores the administrator's original controls. Hiding controls is not an authorization boundary.
+
+Moniepoint's published Push Payment Request documentation lists `CARD_PURCHASE`, `POS_TRANSFER` and `ANY`. New terminal dialogs default to Card or transfer, Moniepoint and the only active shop, with Use terminal off. This does not enable credentials or settle invoices. Source: TeamApt page 1039826999, version 20, updated 22 January 2025, retrieved 3 October 2026. See `docs/moniepoint-client-auth.md` for the official documentation URL and unresolved connection prerequisites.

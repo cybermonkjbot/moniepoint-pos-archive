@@ -3,6 +3,37 @@
     const config = frappe.boot.k3ls_shop_ui;
     if (!config) return;
     document.body.classList.add("k3ls-shop");
+    const notifications = frappe.ui.Notifications.prototype;
+    const make_notification_tab = notifications.make_tab_view;
+    notifications.make_tab_view = function (item) {
+        if (item.id === "notifications") return make_notification_tab.call(this, item);
+    };
+    const clean_notifications = instance => {
+        instance.categories = (instance.categories || []).filter(category => {
+            if (category.id === "notifications") return true;
+            category.$tab?.remove(); instance.tabs[category.id]?.hide(); return false;
+        });
+        instance.panel_events?.remove(); instance.panel_changelog_feed?.remove();
+        if (instance.categories[0]) instance.switch_tab(instance.categories[0]);
+    };
+    const setup_notification_headers = notifications.setup_headers;
+    notifications.setup_headers = function () {
+        setup_notification_headers.call(this);
+        clean_notifications(this);
+    };
+    if (frappe.app?.sidebar?.notifications) clean_notifications(frappe.app.sidebar.notifications);
+    // Omit the explanatory option from display, keyboard selection and result counts.
+    // The original search query and its permission filters remain untouched.
+    const link_control = frappe.ui.form.ControlLink.prototype;
+    link_control.get_filter_description = async function () { return ""; };
+    const setup_autocomplete = link_control.setup_awesomeplete;
+    link_control.setup_awesomeplete = function () {
+        setup_autocomplete.call(this);
+        const original_filter = this.awesomplete.filter;
+        this.awesomplete.filter = function (item, input) {
+            return item.value !== "filter_description__link_option" && original_filter.call(this, item, input);
+        };
+    };
     // The phone dock uses the same routes and access checks as the shop sidebar.
     const dock = $("<nav class='k3ls-app-dock' aria-label='Shop'></nav>").appendTo(document.body);
     const shortcuts = [
@@ -37,8 +68,12 @@
     const update_dock = () => {
         const route = frappe.get_route();
         const entity = ["Form", "List", "Tree"].includes(route[0]) ? route[1] : route[0];
-        const shop_screen = Boolean(config[entity] || ["point-of-sale", "shop-repairs", "shop-accounts", "shop-money-owed", "Workspaces", "K3LS Shop", "K3LS Owner"].includes(entity));
+        const shop_screen = Boolean(config[entity] || ["point-of-sale", "shop-repairs", "shop-accounts", "shop-money-owed", "shop-staff", "User", "Workspaces", "K3LS Shop", "K3LS Owner"].includes(entity));
         document.body.classList.toggle("k3ls-app-screen", shop_screen);
+        const owner_screen = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-money-owed", "shop-staff", "User", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction", "K3LS Owner"]
+            .includes(entity) || (entity === "Workspaces" && route[1] === "K3LS Owner")
+            || (entity === "POS Invoice" && frappe.app?.sidebar?.sidebar_title === "K3LS Owner");
+        document.body.classList.toggle("k3ls-owner-screen", owner_screen);
         let shortcut_selected = false;
         for (const shortcut of shortcuts) {
             const selected = shortcut.matches.includes(entity);
@@ -56,9 +91,9 @@
     // Translate the shop's terms, including quick-entry forms and checkout.
     Object.assign(frappe._messages, {
         "Item": "Product", "Item Name": "Product name", "Item Group": "Category",
-        "K3LS Repair": "Repair", "POS Profile": "Till settings", "POS Invoice": "Sale",
+        "K3LS Repair": "Repair", "POS Profile": "Checkout settings", "POS Invoice": "Sale",
         "Purchase Invoice": "Purchase", "Sales Invoice": "Invoice", "Payment Entry": "Payment",
-        "Mode of Payment": "Payment method", "Posting Date": "Date", "Party": "Name",
+        "Mode of Payment": "Payment method", "Moniepoint MFB": "Moniepoint", "Posting Date": "Date", "Party": "Name",
         "Party Type": "Customer or supplier", "Primary Contact Details": "Contact details",
         "Receive": "Money in", "Pay": "Money out", "Internal Transfer": "Move between accounts",
         "Primary Address Details": "Address", "Email Id": "Email", "Mobile Number": "Phone",
@@ -79,7 +114,7 @@
         "Payment Type": "Direction", "Account Paid From": "From account", "Account Paid To": "To account",
         "In Place": "In place", "Debit To": "Customer account", "Credit To": "Supplier account",
         "Payment Terms": "Payment dates", "Due Date": "Pay by", "Remarks": "Notes",
-        "Payment Entries": "Payments", "Stock Entry": "Stock change", "Stock Entries": "Stock changes",
+        "Payment Entries": "Money in/out", "Stock Entry": "Stock change", "Stock Entries": "Stock changes",
         "Journal Entry": "Account adjustment", "Journal Entries": "Account adjustments",
         "POS Opening Entry": "Open till", "POS Closing Entry": "Close till",
         "Payment Entry Reference": "Invoice", "Payment Entry Deduction": "Deduction",
@@ -115,7 +150,7 @@
 
     // ERPNext uses breadcrumbs as its title. Keep one heading, without the trail.
     const page_titles = Object.fromEntries(Object.keys(config).map(name => [name, __(name)]));
-    Object.assign(page_titles, { "Payment Entry": "Payments", "Payment": "Payments", "Supplier": "Suppliers", "Customer": "Customers", "Item": "Products", "Product": "Products", "K3LS Repair": "Repairs", "Repair": "Repairs", "Purchase Invoice": "Purchases", "Purchase": "Purchases", "POS Invoice": "Sales", "Sale": "Sales", "Sales Invoice": "Invoices", "Invoice": "Invoices", "Account": "Accounts" });
+    Object.assign(page_titles, { "Payment Entry": "Money in/out", "Payment": "Money in/out", "Supplier": "Suppliers", "Customer": "Customers", "Item": "Products", "Product": "Products", "K3LS Repair": "Repairs", "Repair": "Repairs", "Purchase Invoice": "Purchases", "Purchase": "Purchases", "POS Invoice": "Sales", "Sale": "Sales", "Sales Invoice": "Invoices", "Invoice": "Invoices", "Account": "Accounts", "Point of Sale": "POS", "POS": "POS", "Repairs": "Repairs", "New repair": "New repair", "User": "Users", "Money owed": "Money owed" });
     const page = frappe.ui.Page.prototype;
     const set_title = page.set_title;
     page.set_title = function (title, ...args) {
@@ -156,13 +191,40 @@
                     if (control) { control.df[property] = value; changed.add(control); }
                 };
                 frm.$wrapper.addClass("k3ls-simple-form");
+                frm.$wrapper.toggleClass("k3ls-no-files", ["Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction", "POS Profile", "Account"].includes(doctype));
+                if (doctype === "Moniepoint Settings" && !frm.$wrapper.find(".k3ls-admin-warning").length) {
+                    const warning = $("<section class='k3ls-admin-warning' role='note' aria-label='Admin only'></section>");
+                    $("<strong></strong>").text(__("Admin only")).appendTo(warning);
+                    $("<p></p>").text(__("Only administrators should change these payment connection settings.")).appendTo(warning);
+                    warning.prependTo(frm.layout.wrapper);
+                    $("<img class='k3ls-moniepoint-wordmark' alt='Moniepoint' src='/assets/moniepoint_pos/images/moniepoint-logo.svg'>").insertBefore(warning);
+                }
                 frm.$wrapper.toggleClass("k3ls-master-form", ["Supplier", "Customer"].includes(doctype));
                 if (doctype === "Supplier") set_property("supplier_details", "description", "");
                 if (doctype === "Customer") set_property("customer_details", "description", "");
                 if (!frm.k3ls_original_hidden) {
                     frm.k3ls_original_hidden = Object.fromEntries(frm.meta.fields.map(df => [df.fieldname, df.hidden || 0]));
+                    frm.k3ls_original_read_only = Object.fromEntries(frm.meta.fields.map(df => [df.fieldname, df.read_only || 0]));
                 }
                 const reveal = Boolean(frm.k3ls_more_fields && frappe.user.has_role("System Manager"));
+                if (doctype === "POS Profile" && frm.doc.name === "K3LS Shop" && !frm.is_new()) {
+                    frm.page.set_title(__("Checkout settings"));
+                    const grid = frm.fields_dict.payments.$wrapper;
+                    if (!frm.k3ls_payment_summary) frm.k3ls_payment_summary = $("<section class='k3ls-checkout-methods' aria-label='Payment methods'></section>").insertBefore(grid);
+                    const summary = frm.k3ls_payment_summary.empty().toggle(!reveal);
+                    for (const payment of frm.doc.payments || []) {
+                        const card = $("<div class='k3ls-checkout-method'></div>").appendTo(summary);
+                        if (payment.mode_of_payment === "Moniepoint MFB") {
+                            $("<img alt='' src='/assets/moniepoint_pos/images/moniepoint-mark.svg'>").appendTo(card);
+                        } else $("<span aria-hidden='true'></span>").html(frappe.utils.icon("wallet", "lg")).appendTo(card);
+                        const text = $("<div></div>").appendTo(card);
+                        $("<strong></strong>").text(__(payment.mode_of_payment)).appendTo(text);
+                        $("<small></small>").text(__(payment.default ? "Default" : payment.mode_of_payment === "Moniepoint MFB" ? "Card or transfer" : "")).appendTo(text);
+                    }
+                    grid.toggle(reveal);
+                    $("<p class='text-muted'></p>").text(__("Part payments are available at checkout.")).appendTo(summary);
+                    frm.page.btn_primary.toggleClass("hide", !reveal);
+                }
                 for (const name of settings.hide) {
                     const tab = frm.layout.tabs.find(tab => tab.df.fieldname === name);
                     const control = frm.fields_dict[name] || tab;
@@ -184,10 +246,27 @@
                 }
                 if (doctype === "Item" && !reveal) {
                     set_property("stock_uom", "hidden", frm.doc.stock_uom === "Nos" ? 1 : 0);
-                    set_property("is_stock_item", "description", "Turn off for services such as repairs.");
                     set_property("disabled", "label", "Stop selling this product");
                 } else if (doctype === "Item") {
                     set_property("stock_uom", "hidden", frm.k3ls_original_hidden.stock_uom);
+                }
+                if (doctype === "Item") {
+                    for (const name of ["item_code", "stock_uom", "is_stock_item", "has_serial_no", "opening_stock", "valuation_rate", "standard_rate",
+                        "custom_k3ls_purchase_cost", "custom_k3ls_landing_cost"]) {
+                        set_property(name, "read_only", !reveal && !frm.is_new() ? 1 : frm.k3ls_original_read_only[name] || 0);
+                    }
+                }
+                // Child-row tax template selectors are separate from the parent form fields.
+                for (const control of Object.values(frm.fields_dict)) {
+                    if (!control.grid) continue;
+                    for (const df of control.grid.docfields) {
+                        if (!df.fieldname.includes("tax") || df.read_only) continue;
+                        frm.k3ls_child_tax_hidden ||= {};
+                        const key = `${control.df.fieldname}:${df.fieldname}`;
+                        if (!(key in frm.k3ls_child_tax_hidden)) frm.k3ls_child_tax_hidden[key] = df.hidden || 0;
+                        const hidden = reveal ? frm.k3ls_child_tax_hidden[key] : 1;
+                        if (df.hidden !== hidden) control.grid.update_docfield_property(df.fieldname, "hidden", hidden);
+                    }
                 }
                 frm.remove_custom_button(__("More fields"));
                 frm.remove_custom_button(__("Fewer fields"));
@@ -268,6 +347,62 @@
             this.dropdown_items = this.dropdown_items.filter((item, index, items) => !item.is_divider || (index > 0 && index < items.length - 1 && !items[index - 1].is_divider));
         };
         const sidebar = frappe.ui.Sidebar.prototype;
+        const link_item = frappe.ui.sidebar_item.TypeLink.prototype;
+        const get_sidebar_path = link_item.get_path;
+        link_item.get_path = function () {
+            if (this.item.link_type === "DocType" && this.item.link_to === "POS Profile"
+                && this.workspace_title?.toLowerCase() === "k3ls owner" && frappe.boot.k3ls_till_profile) {
+                return `/desk/pos-profile/${encodeURIComponent(frappe.boot.k3ls_till_profile)}#accounting_tab`;
+            }
+            return get_sidebar_path.call(this);
+        };
+        const setup_sidebar = sidebar.setup;
+        sidebar.setup = function (...args) {
+            const result = setup_sidebar.apply(this, args);
+            update_dock();
+            return result;
+        };
+        const place_account_notifications = instance => {
+            const root = instance.wrapper;
+            if (!root?.length) return;
+            let account_tools = root.find(".k3ls-account-tools");
+            if (!account_tools.length) account_tools = $("<div class='k3ls-account-tools standard-items-sections'></div>")
+                .appendTo(root.find(".body-sidebar-bottom"));
+            root.find(".sidebar-notification").appendTo(account_tools);
+            root.find(".dropdown-notifications").appendTo(account_tools);
+            root.find(".sidebar-user-button").closest(".dropdown-navbar-user").appendTo(account_tools);
+            const trigger = account_tools.find(".sidebar-notification .item-anchor");
+            trigger.attr({role: "button", tabindex: "0", "aria-label": __("Notifications"), "aria-expanded": "false"});
+            trigger.off("keydown.k3ls-notifications").on("keydown.k3ls-notifications", event => {
+                if (["Enter", " "].includes(event.key)) {event.preventDefault(); trigger.trigger("click");}
+            });
+            const dropdown = account_tools.find(".dropdown-notifications");
+            if (!dropdown.length) return;
+            dropdown.find(".notifications-list").attr({role: "dialog", "aria-label": __("Notifications")});
+            dropdown.find(".header-actions > span").each(function () {
+                const action = $(this);
+                action.attr({role: "button", tabindex: "0", "aria-label": action.attr("data-original-title") || action.attr("title") || __("Close notifications")});
+                action.off("keydown.k3ls-notifications").on("keydown.k3ls-notifications", event => {
+                    if (["Enter", " "].includes(event.key)) {event.preventDefault(); action.trigger("click");}
+                });
+            });
+            instance.k3ls_notification_observer?.disconnect();
+            instance.k3ls_notification_observer = new MutationObserver(() => {
+                const open = !dropdown.hasClass("hidden");
+                trigger.attr("aria-expanded", String(open));
+                document.body.classList.toggle("k3ls-notifications-open", open);
+            });
+            instance.k3ls_notification_observer.observe(dropdown[0], {attributes: true, attributeFilter: ["class"]});
+            dropdown.off("keydown.k3ls-notifications").on("keydown.k3ls-notifications", event => {
+                if (event.key === "Escape") {dropdown.addClass("hidden"); trigger.trigger("focus");}
+            });
+        };
+        const setup_sidebar_notifications = sidebar.setup_notifications;
+        sidebar.setup_notifications = function () {
+            setup_sidebar_notifications.call(this);
+            place_account_notifications(this);
+        };
+        if (frappe.app?.sidebar?.notifications) place_account_notifications(frappe.app.sidebar);
         const load_sidebar_state = sidebar.load_sidebar_state;
         sidebar.load_sidebar_state = function () {
             load_sidebar_state.call(this);
@@ -281,10 +416,26 @@
             // Opening the phone drawer must not overwrite the desktop preference.
             if (!frappe.is_mobile()) localStorage.setItem("k3ls-sidebar-expanded", String(this.sidebar_expanded));
         };
+        const add_sidebar_item = sidebar.add_item;
+        sidebar.add_item = function (container, item, ...args) {
+            if (item.class?.includes("sidebar-notification")) item.onClick = () => {
+                const dropdown = this.wrapper.find(".dropdown-notifications");
+                dropdown.toggleClass("hidden");
+                if (!dropdown.hasClass("hidden")) dropdown.trigger("show.bs.dropdown");
+            };
+            const result = add_sidebar_item.call(this, container, item, ...args);
+            if (item.link_to === "Moniepoint Settings") {
+                container.find("a[href^='/desk/moniepoint-settings'] .sidebar-item-icon").empty()
+                    .append($("<img class='k3ls-moniepoint-mark' alt='' src='/assets/moniepoint_pos/images/moniepoint-mark.svg'>"));
+            }
+            return result;
+        };
         const resolve = sidebar.resolve_sidebar;
         const shop = ["Item", "Customer", "K3LS Repair", "shop-repairs", "POS Invoice", "Sales Invoice", "point-of-sale"];
-        const owner = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-money-owed", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction"];
+        const owner = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-money-owed", "shop-staff", "User", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction"];
         sidebar.resolve_sidebar = function (entity, module) {
+            if (entity === "POS Invoice" && this.sidebar_title === "K3LS Owner"
+                && this.all_sidebar_items["k3ls owner"]) return "K3LS Owner";
             const title = shop.includes(entity) ? "K3LS Shop" : owner.includes(entity) ? "K3LS Owner" : null;
             if (title && this.all_sidebar_items[title.toLowerCase()]) return title;
             return resolve.call(this, entity, module);

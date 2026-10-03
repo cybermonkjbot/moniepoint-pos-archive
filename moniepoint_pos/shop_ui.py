@@ -50,8 +50,8 @@ FORMS = {
         "defaults": {}, "columns": ["posting_date", "grand_total", "outstanding_amount"], "filters": ["posting_date", "status"], "keep_id": True,
     },
     "POS Profile": {
-        "hide": "utm_analytics_section accounting_dimensions_section".split(),
-        "labels": {"accounting_tab": "Payments and accounts", "pos_configurations_tab": "Till settings", "more_info_tab": "Receipts", "customer": "Walk-in customer", "warehouse": "Stock location", "applicable_for_users": "Staff who can use this till", "hide_images": "Hide product photos", "auto_add_item_to_cart": "Add items with one click", "allow_rate_change": "Allow price changes", "allow_discount_change": "Allow discounts", "validate_stock_on_save": "Check stock before saving", "selling_price_list": "Selling prices", "print_format": "Receipt layout", "print_receipt_on_order_complete": "Print after payment", "allow_partial_payment": "Allow part payments", "account_for_change_amount": "Cash account for change"},
+        "hide": "__details country disabled company customer warehouse company_address pos_configurations_tab more_info_tab print_receipt_on_order_complete utm_analytics_section accounting_dimensions_section set_grand_total_to_default_mop price_list_and_currency_section write_off_section income_and_expense_account taxes_section section_break_19 pos_item_selector_section pos_item_details_section section_break_15 section_break_23 action_on_new_invoice validate_stock_on_save update_stock ignore_pricing_rule hide_images hide_unavailable_items auto_add_item_to_cart allow_rate_change allow_discount_change applicable_for_users item_groups customer_groups".split(),
+        "labels": {"accounting_tab": "Payments", "pos_configurations_tab": "Receipt", "more_info_tab": "Receipt layout", "customer": "Walk-in customer", "warehouse": "Stock location", "applicable_for_users": "Users", "hide_images": "Hide product photos", "auto_add_item_to_cart": "Add items with one click", "allow_rate_change": "Allow price changes", "allow_discount_change": "Allow discounts", "validate_stock_on_save": "Check stock before saving", "selling_price_list": "Selling prices", "print_format": "Receipt layout", "print_receipt_on_order_complete": "Print after sale", "allow_partial_payment": "Allow part payments", "account_for_change_amount": "Cash account for change"},
         "defaults": {}, "columns": ["warehouse"], "filters": [],
     },
     "Moniepoint Settings": {
@@ -80,6 +80,9 @@ FORMS["Item"]["labels"].update({
     "custom_k3ls_arrival_condition": "Condition when received", "custom_k3ls_final_condition": "Condition now",
     "custom_k3ls_acquired_on": "Date received", "custom_k3ls_acquisition_type": "How received",
 })
+FORMS["Item"]["hide"].extend("item_tax_section_break is_stock_item has_serial_no custom_k3ls_ownership custom_k3ls_owner custom_k3ls_acquisition".split())
+for _doctype in ("Item", "Customer", "Supplier", "Purchase Invoice", "Sales Invoice", "POS Invoice", "Payment Entry"):
+    FORMS[_doctype]["hide"].extend(["dashboard_tab", "connections_tab"])
 FORMS["K3LS Repair"]["labels"].update({
     "intake_tab": "Details", "progress_tab": "Progress", "billing_tab": "Price and payment",
     "relationship": "Customer type", "configuration": "Specifications", "serial_no": "Serial or IMEI",
@@ -113,6 +116,21 @@ CHILD_LABELS = {
 }
 
 
+def presentation_config():
+    """Omit tax setup controls, not tax calculations or recorded amounts."""
+    import copy
+    config = copy.deepcopy(FORMS)
+    for doctype, settings in config.items():
+        if settings.get("presentation_only"):
+            continue
+        for df in frappe.get_meta(doctype).fields:
+            if "tax" in df.fieldname and df.fieldtype != "Column Break" and (
+                not df.read_only or df.fieldname == "tax_id"
+            ):
+                settings["hide"].append(df.fieldname)
+    return config
+
+
 def enabled():
     return frappe.db.exists("Workspace Sidebar", "K3LS Shop") and frappe.db.get_value("POS Profile", "K3LS Shop", "company") == "K3LS LIMITED"
 
@@ -120,7 +138,11 @@ def enabled():
 def boot_session(bootinfo):
     if not enabled():
         return
-    bootinfo.k3ls_shop_ui = FORMS
+    bootinfo.k3ls_shop_ui = presentation_config()
+    # Only skip the list when this user can read exactly one active client till.
+    profiles = frappe.get_list("POS Profile", filters={"company": "K3LS LIMITED", "disabled": 0},
+        fields=["name"], limit_page_length=2) if frappe.has_permission("POS Profile", "read") else []
+    bootinfo.k3ls_till_profile = profiles[0].name if len(profiles) == 1 else None
     # Keep all record permissions unchanged. Only filter navigation presented to this site.
     bootinfo.workspace_sidebar_item = {key: value for key, value in bootinfo.workspace_sidebar_item.items() if key in ("k3ls shop", "k3ls owner", "my workspaces")}
 

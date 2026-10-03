@@ -1,0 +1,9 @@
+{
+ "doctype": "Page",
+ "module": "Moniepoint POS",
+ "name": "shop-staff",
+ "page_name": "shop-staff",
+ "roles": [{"role": "System Manager"}],
+ "standard": "Yes",
+ "title": "Users"
+}

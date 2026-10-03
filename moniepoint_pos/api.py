@@ -55,7 +55,7 @@ def request_payment(invoice, terminal):
     doc.check_permission("write")
     # Serialize requests for this invoice, including concurrent operator clicks.
     frappe.db.sql("SELECT name FROM `tabPOS Invoice` WHERE name=%s FOR UPDATE", (doc.name,))
-    device = frappe.get_doc("Moniepoint Terminal", terminal)
+    device = frappe.get_doc("Moniepoint Terminal", terminal, for_update=True)
     device.check_permission("read")
     if doc.docstatus != 0 or doc.is_return or doc.currency != "NGN":
         frappe.throw("Save a new sale in NGN before requesting payment. Returns cannot use terminal payments.")

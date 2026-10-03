@@ -49,8 +49,7 @@ def configure():
         "cost_center": company.cost_center, "income_account": company.default_income_account,
         "expense_account": company.default_expense_account, "update_stock": 1,
         "allow_partial_payment": 1,
-        "payments": [{"mode_of_payment": "Cash", "default": 1}, {"mode_of_payment": "Moniepoint MFB"},
-            {"mode_of_payment": "FCMB"}, {"mode_of_payment": "Sterling"}, {"mode_of_payment": "UBA"}],
+        "payments": [{"mode_of_payment": "Cash", "default": 1}, {"mode_of_payment": "Moniepoint MFB"}],
     })
     for number in range(2, 12):
         code = f"K3LS-ITM-{number:04d}"

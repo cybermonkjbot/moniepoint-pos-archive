@@ -1,6 +1,6 @@
 """Repair-specific screens over the existing repair and invoice records."""
 import frappe
-from frappe.utils import cint, now_datetime
+from frappe.utils import cint, now_datetime, strip_html_tags
 
 DOCTYPE = "K3LS Repair"
 STATES = ("Received", "Diagnosing", "Awaiting approval", "In repair", "Ready for collection", "Collected", "Cancelled")
@@ -58,6 +58,19 @@ def result(doc):
 @frappe.whitelist(methods=["GET"])
 def details(name):
     return result(load(name))
+
+
+@frappe.whitelist(methods=["GET"])
+def customer_details(name):
+    frappe.has_permission(DOCTYPE, "create", throw=True)
+    customer = frappe.get_doc("Customer", name)
+    customer.check_permission("read")
+    if customer.disabled or customer.name == "K3LS Walk-in Customer":
+        frappe.throw("Choose an active named customer.")
+    customer.apply_fieldlevel_read_permissions()
+    previous = frappe.get_list(DOCTYPE, filters={"customer": name}, fields=["name"], limit_page_length=1)
+    return {"phone": customer.get("mobile_no") or "",
+        "address": strip_html_tags(customer.get("primary_address") or ""), "returning": bool(previous)}
 
 
 @frappe.whitelist(methods=["POST"])

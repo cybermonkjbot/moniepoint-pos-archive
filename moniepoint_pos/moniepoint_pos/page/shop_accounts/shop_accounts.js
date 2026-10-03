@@ -2,7 +2,6 @@ frappe.pages["shop-accounts"].on_page_load = function (wrapper) {
     const page = frappe.ui.make_app_page({parent: wrapper, title: __("Accounts"), single_column: true});
     const content = $("<div class='k3ls-accounts'></div>").appendTo(page.main);
     const escape = frappe.utils.escape_html;
-    page.add_menu_item(__("Accounting details"), () => frappe.set_route("Tree", "Account"));
     let loading = false;
     wrapper.refresh = async () => {
         if (loading) return;
@@ -12,10 +11,6 @@ frappe.pages["shop-accounts"].on_page_load = function (wrapper) {
         try {
             const {message: data} = await frappe.call({method: "moniepoint_pos.accounts.overview", type: "GET"});
             content.empty();
-            $("<h2></h2>").text(__("Cash and bank accounts")).appendTo(content);
-            $("<p class='text-muted k3ls-accounts-date'></p>")
-                .text(__("Recorded balances as of {0}", [frappe.datetime.str_to_user(data.as_of)]))
-                .appendTo(content);
             if (!data.accounts.length) {
                 $("<p></p>").text(__("No cash or bank accounts are set up.")).appendTo(content);
                 return;
@@ -27,14 +22,11 @@ frappe.pages["shop-accounts"].on_page_load = function (wrapper) {
                     : format_currency(account.balance, account.account_currency);
                 const link = $("<button type='button' class='k3ls-account-row'></button>")
                     .on("click", () => show_transactions(account));
-                link.html(`<span class="k3ls-account-icon">${frappe.utils.icon(account.account_type === "Cash" ? "wallet" : "landmark", "md")}</span>
-                    <span class="k3ls-account-name"><strong>${escape(account.account_name)}</strong><span class="text-muted">${escape(account.account_type === "Cash" ? __("Cash") : __("Bank"))}</span></span>
+                link.html(`<span class="k3ls-account-icon" aria-hidden="true">${account.label === "Moniepoint" ? '<img class="k3ls-payment-mark" alt="" src="/assets/moniepoint_pos/images/moniepoint-mark.svg">' : frappe.utils.icon("wallet", "md")}</span>
+                    <span class="k3ls-account-name"><strong>${escape(account.label)}</strong></span>
                     <span class="k3ls-account-balance">${escape(balance)}</span>
                     <span aria-hidden="true">${frappe.utils.icon("chevron-right", "sm")}</span>`).appendTo(rows);
             }
-            $("<p class='text-muted k3ls-accounts-updated'></p>")
-                .text(__("Updated {0}", [frappe.datetime.str_to_user(data.updated_at.slice(0, 10)) + " " + data.updated_at.slice(11, 16)]))
-                .appendTo(content);
         } catch (error) {
             content.empty().append($("<p></p>").text(__("Accounts could not load. Try again.")));
             $("<button type='button' class='btn btn-default'></button>").text(__("Retry"))
@@ -47,7 +39,7 @@ frappe.pages["shop-accounts"].on_page_load = function (wrapper) {
     page.set_secondary_action(__("Refresh"), () => wrapper.refresh());
 
     async function show_transactions(account) {
-        const dialog = new frappe.ui.Dialog({title: account.account_name, size: "large",
+        const dialog = new frappe.ui.Dialog({title: account.label, size: "large",
             fields: [{fieldtype: "HTML", fieldname: "transactions"}]});
         const body = dialog.fields_dict.transactions.$wrapper;
         body.text(__("Loading transactions…"));

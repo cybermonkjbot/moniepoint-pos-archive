@@ -15,17 +15,19 @@ frappe.pages["shop-repairs"].on_page_load = function (wrapper) {
         });
     const results = $("<div class='k3ls-repair-results' aria-live='polite'></div>").appendTo(content);
     const pager = $("<div class='k3ls-repair-pager'></div>").appendTo(content);
+    let intake = null;
     page.set_secondary_action(__("Refresh"), () => wrapper.refresh());
     page.add_menu_item(__("All repair records"), () => frappe.set_route("List", "K3LS Repair"));
 
     wrapper.refresh = async () => {
+        if (intake) return;
         const token = ++request;
         results.attr("aria-busy", "true");
         try {
             const {message: data} = await frappe.call({method: "moniepoint_pos.repairs.overview", type: "GET",
                 args: {status: selected, search, start}});
             if (token !== request) return;
-            if (data.can_create) page.set_primary_action(__("New repair"), () => edit(null, "intake"));
+            if (data.can_create) page.set_primary_action(__("New repair"), start_intake);
             filters.empty();
             for (const status of ["Active", "Received", "Diagnosing", "Awaiting approval", "In repair", "Ready for collection", "All"]) {
                 const count = status === "Active" ? Object.entries(data.counts).reduce((sum, [key, value]) => sum + (!["Collected", "Cancelled"].includes(key) ? value : 0), 0)
@@ -40,7 +42,7 @@ frappe.pages["shop-repairs"].on_page_load = function (wrapper) {
                 $("<span aria-hidden='true'></span>").html(frappe.utils.icon("wrench", "lg")).appendTo(empty);
                 $("<h2></h2>").text(__(search ? "No matching repairs" : selected === "Active" ? "No active repairs" : "No repairs here")).appendTo(empty);
                 if (data.can_create && !search) $("<button type='button' class='btn btn-primary'></button>")
-                    .text(__("New repair")).on("click", () => edit(null, "intake")).appendTo(empty);
+                    .text(__("New repair")).on("click", start_intake).appendTo(empty);
             }
             for (const repair of data.repairs) {
                 const row = $("<button type='button' class='k3ls-repair-row'></button>").appendTo(results)
@@ -64,6 +66,236 @@ frappe.pages["shop-repairs"].on_page_load = function (wrapper) {
                 .on("click", () => wrapper.refresh()).appendTo(results);
         } finally {if (token === request) results.attr("aria-busy", "false");}
     };
+
+    function start_intake() {
+        if (intake) return;
+        ++request;
+        toolbar.hide(); results.hide(); pager.hide();
+        page.set_title(__("New repair"));
+        page.clear_primary_action();
+        page.set_secondary_action(__("All repairs"), leave_intake);
+        content.addClass("k3ls-intake-active");
+        const shell = $("<div class='k3ls-repair-intake'></div>").appendTo(content);
+        const editor = $("<div class='k3ls-intake-editor'></div>").appendTo(shell);
+        const side = $("<div class='k3ls-intake-side'></div>").appendTo(shell);
+        const state = intake = {shell, controls: {}, dirty: false, busy: false, customer_request: 0, filled_contact: {}, step: "device"};
+        const phone_tabs = $("<nav class='k3ls-intake-phone-tabs' aria-label='Repair details'></nav>").prependTo(shell);
+        const phone_footer = $("<div class='k3ls-intake-phone-footer'></div>").appendTo(shell);
+        const next = $("<button type='button' class='btn btn-primary'></button>").appendTo(phone_footer);
+        const steps = ["device", "problem", "customer"];
+        const show_step = (step, focus=false) => {
+            state.step = step;
+            shell.attr("data-phone-step", step);
+            phone_tabs.find("button").each(function () {$(this).attr("aria-pressed", String(this.dataset.step === step));});
+            next.text(__(step === "customer" ? "Save repair" : step === "device" ? "Continue" : "Add customer"));
+            if (focus) state.controls[step === "device" ? "device" : step === "problem" ? "fault_reported" : "customer"].set_focus();
+        };
+        for (const step of steps) $("<button type='button'></button>").attr("data-step", step)
+            .text(__(step[0].toUpperCase() + step.slice(1))).on("click", () => show_step(step)).appendTo(phone_tabs);
+        const panel = (parent, title) => {
+            const card = $("<section class='k3ls-intake-card'></section>").appendTo(parent);
+            $("<h2></h2>").text(__(title)).appendTo(card);
+            return card;
+        };
+        const make = (parent, name, label, type="Data", extra={}) => {
+            const control = frappe.ui.form.make_control({parent, render_input: true,
+                df: {fieldname: name, fieldtype: type, label: __(label), onchange: () => {
+                    state.dirty = true; update_ticket();
+                }, ...extra}});
+            state.controls[name] = control;
+            control.$wrapper.removeClass("has-error");
+            if (control.$input) {
+                const id = `k3ls-intake-${name}`;
+                control.$input.attr({id, "aria-label": __(label)});
+                control.$wrapper.find("label").attr("for", id);
+                control.$input.on("input.k3ls-intake change.k3ls-intake", () => {
+                    state.dirty = true; update_ticket();
+                });
+            }
+            return control;
+        };
+        const device = panel(editor, "Device").addClass("k3ls-intake-device-card");
+        const types = $("<div class='k3ls-intake-devices' role='group' aria-label='Device type'></div>").appendTo(device);
+        const device_buttons = [];
+        for (const [label, icon] of [["Laptop", "laptop"], ["Phone", "smartphone"], ["Tablet", "tablet"], ["Other", "package"]]) {
+            const button = $("<button type='button' aria-pressed='false'></button>")
+                .append($("<span aria-hidden='true'></span>").html(frappe.utils.icon(icon, "lg")))
+                .append($("<span></span>").text(__(label))).appendTo(types);
+            device_buttons.push({button, label});
+            button.on("click", async () => {
+                for (const item of device_buttons) item.button.attr("aria-pressed", String(item.button === button));
+                const control = state.controls.device;
+                const current = control.get_value() || "";
+                if (!current || ["Laptop", "Phone", "Tablet"].includes(current)) await control.set_value(label === "Other" ? "" : label);
+                control.$input.attr("placeholder", __(label === "Laptop" ? "Brand and model, e.g. HP EliteBook" : label === "Phone" ? "Brand and model, e.g. iPhone 13" : "Brand and model"));
+                control.set_focus();
+            });
+        }
+        const device_fields = $("<div class='k3ls-intake-fields'></div>").appendTo(device);
+        make(device_fields, "device", "Device or model", "Data", {reqd: 1, placeholder: __("Brand and model")});
+        make(device_fields, "serial_no", "Serial or IMEI");
+
+        const problem = panel(editor, "Problem").addClass("k3ls-intake-problem-card");
+        const faults = $("<div class='k3ls-intake-chips' role='group' aria-label='Common problems'></div>").appendTo(problem);
+        for (const label of ["Screen", "Battery", "Won't turn on", "Charging", "Keyboard", "Software"]) {
+            $("<button type='button' aria-pressed='false'></button>").text(__(label)).appendTo(faults).on("click", async function () {
+                const control = state.controls.fault_reported;
+                const parts = (control.get_value() || "").split("\n").filter(Boolean);
+                const index = parts.indexOf(__(label));
+                if (index === -1) parts.push(__(label)); else parts.splice(index, 1);
+                await control.set_value(parts.join("\n"));
+                update_ticket();
+            });
+        }
+        make(problem, "fault_reported", "What's wrong?", "Small Text", {reqd: 1});
+        make(problem, "arrival_condition", "Condition received", "Small Text", {reqd: 1, placeholder: __("Scratches, cracks or other damage")});
+        const extras = $("<details class='k3ls-intake-extras'></details>").appendTo(problem);
+        $("<summary></summary>").text(__("Accessories and photo")).appendTo(extras);
+        make(extras, "accessories_received", "Accessories left with us", "Small Text");
+        make(extras, "intake_evidence", "Device photo", "Attach", {options: {allow_web_link: false, allow_toggle_private: false, is_private: 1}});
+
+        const customer = panel(side, "Customer").addClass("k3ls-intake-customer-card");
+        make(customer, "customer", "Customer", "Link", {options: "Customer", reqd: 1,
+            get_query: () => ({filters: {name: ["!=", "K3LS Walk-in Customer"], disabled: 0}}),
+            onchange: async () => {
+                if (!state.ready) return;
+                state.dirty = true;
+                const name = state.controls.customer.get_value();
+                const token = ++state.customer_request;
+                update_ticket();
+                for (const field of ["customer_phone", "customer_address"]) {
+                    const control = state.controls[field];
+                    if (state.filled_contact[field] && control.get_value() === state.filled_contact[field]) await control.set_value("");
+                }
+                state.filled_contact = {};
+                if (!name) return;
+                const phone_before = state.controls.customer_phone.get_value();
+                const address_before = state.controls.customer_address.get_value();
+                try {
+                    const {message: info} = await frappe.call({method: "moniepoint_pos.repairs.customer_details", type: "GET", args: {name}});
+                    if (intake !== state || token !== state.customer_request) return;
+                    if (!phone_before && !state.controls.customer_phone.get_value() && info.phone) {
+                        await state.controls.customer_phone.set_value(info.phone);
+                        state.filled_contact.customer_phone = info.phone;
+                    }
+                    if (!address_before && !state.controls.customer_address.get_value() && info.address) {
+                        await state.controls.customer_address.set_value(info.address);
+                        state.filled_contact.customer_address = info.address;
+                    }
+                    await state.controls.relationship.set_value(info.returning ? "Returning" : "New");
+                    update_ticket();
+                } catch (error) { /* Contact fields remain editable if lookup fails. */ }
+            }});
+        make(customer, "customer_phone", "Phone", "Data", {reqd: 1});
+        make(customer, "customer_address", "Address", "Small Text", {reqd: 1});
+        make(customer, "relationship", "Customer type", "Select", {options: "New\nReturning"});
+
+        const ticket = panel(side, "Repair ticket").addClass("k3ls-intake-ticket-card");
+        const summary = $("<dl class='k3ls-intake-ticket' aria-live='polite'></dl>").appendTo(ticket);
+        const message = $("<p class='k3ls-intake-error' role='alert' hidden></p>").appendTo(ticket);
+        const save = $("<button type='button' class='btn btn-primary k3ls-intake-save'></button>").text(__("Save repair")).appendTo(ticket);
+        state.save = save;
+        function update_ticket() {
+            if (intake !== state || !state.ready) return;
+            const value = name => {
+                const control = state.controls[name];
+                return String(control?.df.fieldtype === "Link" ? control.get_value() || "" : control?.$input?.val() ?? control?.get_value() ?? "").trim();
+            };
+            summary.empty();
+            for (const [label, text] of [["Device", value("device") || __("Not added")], ["Problem", value("fault_reported") || __("Not added")],
+                ["Condition", value("arrival_condition") || __("Not added")], ["Status", __("Received")]]) {
+                $("<dt></dt>").text(__(label)).appendTo(summary);
+                $("<dd></dd>").text(text).appendTo(summary);
+            }
+            const problems = value("fault_reported").split("\n");
+            faults.find("button").each(function () { $(this).attr("aria-pressed", String(problems.includes($(this).text()))); });
+        }
+        save.on("click", async () => {
+            if (state.busy) return;
+            const values = {}, missing = [];
+            for (const [name, control] of Object.entries(state.controls)) {
+                const value = control.get_value();
+                values[name] = typeof value === "string" ? value.trim() : value;
+                const invalid = Boolean(control.df.reqd && !values[name]);
+                control.$wrapper.toggleClass("has-error", invalid);
+                control.$input?.attr("aria-invalid", String(invalid));
+                if (invalid) missing.push(control);
+            }
+            if (values.customer === "K3LS Walk-in Customer") {
+                if (window.matchMedia("(max-width: 767px)").matches) show_step("customer");
+                message.text(__("Choose the customer's name for this repair.")).prop("hidden", false);
+                phone_error.text(message.text()).prop("hidden", false);
+                state.controls.customer.set_focus();
+                return;
+            }
+            if (missing.length) {
+                if (window.matchMedia("(max-width: 767px)").matches) {
+                    const name = missing[0].df.fieldname;
+                    show_step(["device", "serial_no"].includes(name) ? "device" : ["fault_reported", "arrival_condition"].includes(name) ? "problem" : "customer");
+                }
+                message.text(__("Add {0}.", [missing.map(control => control.df.label.toLowerCase()).join(", ")])).prop("hidden", false);
+                phone_error.text(message.text()).prop("hidden", false);
+                missing[0].set_focus();
+                return;
+            }
+            state.busy = true;
+            shell.attr("aria-busy", "true");
+            save.prop("disabled", true).text(__("Saving…"));
+            next.prop("disabled", true).text(__("Saving…"));
+            message.prop("hidden", true);
+            phone_error.prop("hidden", true);
+            try {
+                const {message: saved} = await frappe.call({method: "moniepoint_pos.repairs.save", type: "POST", args: {values, section: "intake"}});
+                finish_intake();
+                wrapper.refresh();
+                open(saved.repair.name);
+            } catch (error) {
+                message.text(__("Repair wasn't saved. Check the details and retry.")).prop("hidden", false);
+                phone_error.text(message.text()).prop("hidden", false);
+            } finally {
+                state.busy = false;
+                shell.attr("aria-busy", "false");
+                save.prop("disabled", false).text(__("Save repair"));
+                next.prop("disabled", false); show_step(state.step);
+            }
+        });
+        const phone_error = $("<p class='k3ls-intake-error' role='alert' hidden></p>").prependTo(phone_footer);
+        next.on("click", () => {
+            if (state.busy) return;
+            if (state.step === "customer") {save.trigger("click"); return;}
+            const required = state.step === "device" ? ["device"] : ["fault_reported", "arrival_condition"];
+            const missing = required.map(name => state.controls[name]).find(control => !String(control.get_value() || "").trim());
+            if (missing) {
+                phone_error.text(__("Add {0}.", [missing.df.label.toLowerCase()])).prop("hidden", false);
+                missing.$input?.attr("aria-invalid", "true"); missing.set_focus(); return;
+            }
+            phone_error.prop("hidden", true);
+            show_step(steps[steps.indexOf(state.step) + 1]);
+            content[0].scrollIntoView({block: "start"});
+        });
+        show_step("device");
+        state.ready = true;
+        state.controls.relationship.set_value("New").then(() => {state.dirty = false; update_ticket();});
+        update_ticket();
+    }
+
+    function finish_intake() {
+        intake.shell.remove(); intake = null;
+        content.removeClass("k3ls-intake-active");
+        toolbar.show(); results.show(); pager.show();
+        page.set_title(__("Repairs"));
+        page.set_secondary_action(__("Refresh"), () => wrapper.refresh());
+    }
+
+    function leave_intake() {
+        if (!intake || intake.busy) return;
+        const leave = () => {finish_intake(); wrapper.refresh();};
+        if (!intake.dirty) {leave(); return;}
+        const dialog = new frappe.ui.Dialog({title: __("Discard repair?"), fields: [{fieldname: "notice", fieldtype: "HTML", options: `<p>${escape(__("The repair hasn't been saved."))}</p>`}],
+            primary_action_label: __("Discard"), primary_action: () => {dialog.hide(); leave();},
+            secondary_action_label: __("Keep editing"), secondary_action: () => dialog.hide()});
+        dialog.show();
+    }
 
     async function open(name) {
         const {message: data} = await frappe.call({method: "moniepoint_pos.repairs.details", type: "GET", args: {name}});

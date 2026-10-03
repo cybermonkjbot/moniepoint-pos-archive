@@ -35,6 +35,7 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
             make_search_bar() {
                 super.make_search_bar();
                 this.search_field.$input.attr({placeholder: __("Find a product or scan a barcode"), "aria-label": __("Find products")});
+                this.search_field.$wrapper.find(".tooltip-content").remove();
                 this.$component.find(".item-group-field").hide();
                 // A name search must not add a product before it is chosen.
                 this.auto_add_item = false;
@@ -117,6 +118,11 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
                 this.page.add_inner_button(__("Repairs"), () => frappe.set_route("shop-repairs"));
             }
 
+            prepare_menu() {
+                super.prepare_menu();
+                if (this.pos_profile === "K3LS Shop") this.page.add_menu_item(__("Recent sales"), () => this.toggle_recent_order());
+            }
+
             init_item_cart() {
                 super.init_item_cart();
                 if (this.pos_profile !== "K3LS Shop") return;
@@ -137,6 +143,34 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
             init_payments() {
                 super.init_payments();
                 if (this.pos_profile !== "K3LS Shop") return;
+                const payment = this.payment;
+                const render_modes = payment.render_payment_mode_dom.bind(payment);
+                payment.render_payment_mode_dom = () => {
+                    render_modes();
+                    if (!payment.$payment_modes.is(":visible")) return;
+                    for (const row of this.frm.doc.payments || []) {
+                        const mode = payment.sanitize_mode_of_payment(row.mode_of_payment);
+                        const card = payment.$payment_modes.find(`.mode-of-payment[data-mode='${mode}']`);
+                        // Old drafts can contain other methods. Never hide money already entered.
+                        if (!["Cash", "Moniepoint MFB"].includes(row.mode_of_payment) && !flt(row.amount)) {
+                            card.parent().remove(); continue;
+                        }
+                        card.attr({role: "button", tabindex: "0", "aria-label": __(row.mode_of_payment)});
+                        card.contents().filter(function () {return this.nodeType === 3;}).first().replaceWith(
+                            $("<span class='k3ls-payment-name'></span>").text(__(row.mode_of_payment)));
+                        if (row.mode_of_payment === "Moniepoint MFB") {
+                            $("<img class='k3ls-payment-mark' alt='' src='/assets/moniepoint_pos/images/moniepoint-mark.svg'>").prependTo(card);
+                        }
+                        card.on("keydown.k3ls", event => {
+                            if (event.target !== card[0] || !["Enter", " "].includes(event.key)) return;
+                            event.preventDefault(); card.trigger("click");
+                        });
+                    }
+                    if (!payment.selected_mode) {
+                        const cash = payment[`${payment.sanitize_mode_of_payment("Cash")}_control`];
+                        if (cash) {payment.selected_mode = cash; payment.highlight_selected_mode();}
+                    }
+                };
                 const old = this.payment.$component.find(".submit-order-btn");
                 $("<button type='button'></button>").attr("class", old.attr("class")).html(old.html()).replaceAll(old);
                 let submitting = false;
@@ -233,12 +267,71 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
                 if (this.invoice_fields_ready) await this.invoice_fields_ready;
                 super.make_app();
                 if (this.pos_profile !== "K3LS Shop") return;
+                this.setup_phone_pos();
                 this.show_shop_date();
                 if (!this.shop_date_timer) {
                     this.shop_date_timer = setInterval(() => {
                         if (frappe.get_route()[0] === "point-of-sale") this.show_shop_date();
                     }, 60000);
                 }
+            }
+
+            setup_phone_pos() {
+                const shell = this.$components_wrapper;
+                this.phone_panel = "products";
+                const tabs = $("<nav class='k3ls-pos-phone-tabs' aria-label='Sale'></nav>").prependTo(shell);
+                const products = $("<button type='button'></button>").text(__("Products")).appendTo(tabs);
+                const basket = $("<button type='button'></button>").appendTo(tabs);
+                const back = $("<button type='button' class='k3ls-pos-phone-back'></button>")
+                    .text(__("Back to basket")).prependTo(shell);
+                const preview = $("<button type='button' class='k3ls-pos-phone-basket'></button>").appendTo(shell);
+                const select = panel => {
+                    this.phone_panel = panel;
+                    this.sync_phone_pos();
+                };
+                products.on("click", () => select("products"));
+                basket.on("click", () => select("basket"));
+                preview.on("click", () => select("basket"));
+                back.on("click", () => {
+                    if (this.payment.$component[0].style.display !== "none") this.payment.edit_cart();
+                    if (this.item_details.$component[0].style.display !== "none") this.item_details.events.close_item_details();
+                    select("basket");
+                });
+                this.phone_controls = {products, basket, back, preview};
+                const totals = this.cart.update_totals_section.bind(this.cart);
+                this.cart.update_totals_section = (...args) => {
+                    const result = totals(...args);
+                    this.sync_phone_pos();
+                    return result;
+                };
+                // Listen to the core controller's panel changes, including serial selection,
+                // checkout, saved sales and receipts. No duplicate sale or payment state.
+                this.phone_observer?.disconnect();
+                this.phone_observer = new MutationObserver(() => this.sync_phone_pos());
+                shell.children("section").each((index, section) => {
+                    this.phone_observer.observe(section, {attributes: true, attributeFilter: ["style"]});
+                });
+                this.sync_phone_pos();
+            }
+
+            sync_phone_pos() {
+                if (!this.phone_controls) return;
+                const shown = component => Boolean(component?.$component?.[0]
+                    && getComputedStyle(component.$component[0]).display !== "none");
+                let panel = this.phone_panel || "products";
+                if (shown(this.recent_order_list)) panel = "history";
+                else if (shown(this.payment)) panel = "payment";
+                else if (shown(this.item_details)) panel = "details";
+                else if (this.frm?.doc.docstatus === 1 && shown(this.order_summary)) panel = "receipt";
+                const {products, basket, back, preview} = this.phone_controls;
+                const count = (this.frm?.doc.items || []).reduce((sum, item) => sum + flt(item.qty), 0);
+                const total = flt(this.frm?.doc.rounded_total) || flt(this.frm?.doc.grand_total);
+                this.$components_wrapper.attr("data-phone-panel", panel);
+                products.attr("aria-pressed", String(panel === "products"));
+                basket.text(__("Basket ({0})", [count])).attr("aria-pressed", String(panel === "basket"));
+                preview.empty().append($("<span></span>").text(__("View basket ({0})", [count])))
+                    .append($("<strong></strong>").text(format_currency(total, this.frm?.doc.currency || "NGN")));
+                back.text(__(panel === "details" ? "Back to basket" : "Edit basket"));
             }
 
             fetch_invoice_fields() {
