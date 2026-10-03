@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 root = Path(sys.argv[1]).resolve()
 if root != Path("/opt/k3ls"):
@@ -88,20 +88,41 @@ if not marker.exists():
                 raise
     marker.touch()
 
+def uploaded_members(archive, section):
+    members = []
+    for member in archive:
+        path = PurePosixPath(member.name)
+        parts = path.parts
+        if path.is_absolute() or ".." in parts or "\\" in member.name or len(parts) < 3 or parts[:2] != ("development.localhost", section):
+            raise RuntimeError(f"Unexpected uploaded-file archive path: {member.name!r}")
+        if not (member.isfile() or member.isdir()):
+            raise RuntimeError(f"Unsupported uploaded-file archive entry: {member.name!r}")
+        # macOS tar emits AppleDouble records beside their actual files,
+        # including a ._files record outside the uploaded-files directory.
+        # Ignore only records with the AppleDouble magic/version header and
+        # a corresponding legal uploaded-file path. Never extract metadata.
+        if member.isfile() and parts[-1].startswith("._"):
+            counterpart = (*parts[:-1], parts[-1][2:])
+            if counterpart[2] == "files" and counterpart[-1]:
+                with archive.extractfile(member) as contents:
+                    if contents.read(8) == b"\x00\x05\x16\x07\x00\x02\x00\x00":
+                        continue
+        if parts[2] != "files" or (len(parts) == 3 and not member.isdir()):
+            raise RuntimeError(f"Unexpected uploaded-file archive path: {member.name!r}")
+        member.name = str(PurePosixPath(*parts[1:]))
+        members.append(member)
+    return members
+
+
+# Validate both archives before extracting either. The data filter still
+# rejects paths escaping the target through an existing symlink.
 for archive_name, section in (("public-files.tar", "public"), ("private-files.tar", "private")):
-    target = site / section / "files"
-    target.mkdir(parents=True, exist_ok=True)
     with tarfile.open(backup / archive_name, "r") as archive:
-        members = []
-        for member in archive:
-            parts = Path(member.name).parts
-            if len(parts) < 3 or parts[0] != "development.localhost" or parts[1] != section or parts[2] != "files":
-                raise RuntimeError("Unexpected uploaded-file archive path.")
-            if not (member.isfile() or member.isdir()):
-                raise RuntimeError("Unsupported uploaded-file archive entry.")
-            member.name = str(Path(*parts[1:]))
-            members.append(member)
-        archive.extractall(site, members=members, filter="data")
+        uploaded_members(archive, section)
+for archive_name, section in (("public-files.tar", "public"), ("private-files.tar", "private")):
+    (site / section / "files").mkdir(parents=True, exist_ok=True)
+    with tarfile.open(backup / archive_name, "r") as archive:
+        archive.extractall(site, members=uploaded_members(archive, section), filter="data")
 
 os.chdir(sites)
 sys.path[:0] = [str(bench / "apps" / app) for app in state["installed_apps"]]
