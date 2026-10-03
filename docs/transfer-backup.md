@@ -8,8 +8,8 @@ the folder and archive private. Do not publish them or put them in a public repo
 
 Copy the complete `K3LS-transfer-...` folder to the other machine. Alternatively,
 copy and extract the matching `.zip` archive. Keep its `.sha256` checksum too.
-On Windows, double-click `Verify Backup.cmd` to check the files after copying.
-The verifier uses built-in PowerShell and does not install software or restore data.
+On Windows, `Install K3LS.vbs` checks the files before installing. The standalone
+`verify-transfer.ps1` verifier remains available for checking files without installing.
 
 ## Preserved state
 
@@ -50,10 +50,11 @@ enabled and internet access. Extract the entire ZIP to a local drive. Double-cli
 It opens PowerShell directly, without a Command Prompt window. PowerShell stays
 open after success, a restart request or failure. Installation output is also
 saved under `installation-logs` in the extracted folder.
-`Setup K3LS.cmd` remains available as a compatibility launcher for the same window.
+`windows/Setup K3LS.cmd` remains available as a compatibility launcher for the same window.
 If setup enables WSL2 and asks for a restart, restart and run the same file again.
 
-The script imports a dedicated Ubuntu 24.04 WSL2 distribution named `K3LS-Shop`,
+The script imports a dedicated Ubuntu 24.04 WSL2 distribution named
+`K3LS-Shop-<backup-id>`,
 installs the pinned Python, Node and Bench runtimes, MariaDB, Redis and Nginx,
 then restores the saved database, files, encryption key and exact app source.
 It checks file checksums before installation and compares restored app versions,
@@ -65,11 +66,16 @@ without forcing another update. Linux commands use `wsl --exec` so Windows paths
 are not interpreted by an extra shell. The Linux startup configuration is copied
 as a file and its previous content is preserved before replacement.
 
-For the `20261003-170202` transfer, a separate Windows repair ZIP can resume the
-installation after the invalid `/etc/wsl.conf` and `wslpath` errors. Extract the
-repair folder inside the original transfer and run its `Resume K3LS.vbs`.
-The repair verifies both packages and leaves the original manifest unchanged,
-so the already-imported Linux environment still matches its backup identity.
+This full ZIP contains all installer fixes. No separate repair folder or pasted
+commands are needed. Open `Install K3LS.vbs` from the folder containing
+`manifest.json` and `snapshot`. Windows may add an outer folder when extracting;
+open the inner folder containing these files.
+
+Each transfer has its own Linux name and installation directory. An earlier
+failed `K3LS-Shop` installation is left intact and does not block this package.
+Rerunning the same install continues only its matching environment. A different
+backup is never restored over an existing installation. Desktop start/stop
+launchers use the server configuration saved by the successful installation.
 
 Open http://localhost:8000 and use the same shop login. `Start K3LS.cmd` and
 `Stop K3LS.cmd` are copied to the Windows desktop. A scheduled task starts the

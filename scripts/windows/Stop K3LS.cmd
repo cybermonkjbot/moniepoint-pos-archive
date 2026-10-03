@@ -1,4 +1,3 @@
 @echo off
-powershell.exe -NoProfile -Command "Stop-ScheduledTask -TaskName 'K3LS Shop Server'"
-wsl.exe --terminate K3LS-Shop
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\K3LS\Launcher\start-windows.ps1" -Stop
 pause

@@ -11,6 +11,8 @@ Windows verifier checks copied files. Double-click `Install K3LS.vbs` to open
 administrator PowerShell directly and keep the results and installation log.
 The setup script installs an isolated WSL2
 runtime and restores the saved shop with its existing accounts and passwords.
+Each full backup uses its own Linux environment, so earlier failed installations
+are preserved and do not block the new package. No repair folder is required.
 Successful installation on the target PC remains unverified. Docker and Homebrew are not used.
 Native Windows hosting and PHP server bundles are not supported by this Frappe setup.
 

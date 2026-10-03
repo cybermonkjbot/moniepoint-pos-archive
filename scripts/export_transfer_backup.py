@@ -209,7 +209,7 @@ def main():
                           "available Git history", "prebuilt application assets"],
             "excluded": ["macOS executable dependencies", "live MariaDB data directory",
                          "Redis queues and session cache", "node_modules", "Python virtual environments"],
-            "restore_status": "Windows WSL2 installer included. Not yet executed on Windows.",
+            "restore_status": "Corrected Windows WSL2 installer included. Complete Windows restoration not yet confirmed.",
         })
         client_files = [
             Path.home() / "Downloads/K3LS_BUSINESS_MANAGEMENT_CONTROL_SYSTEM_FINAL_WITH_AUTO_IDS_LOGO_WATERMARKED.xlsx",
@@ -224,9 +224,7 @@ def main():
         archive_sources(snapshot / "walkthrough-project.tar.gz", [(root / "videos", "videos")])
         script_root = Path(__file__).resolve().parent
         shutil.copy2(script_root / "verify-transfer.ps1", package / "verify-transfer.ps1")
-        shutil.copy2(script_root / "Verify Backup.cmd", package / "Verify Backup.cmd")
         shutil.copytree(script_root / "windows", package / "windows")
-        shutil.copy2(script_root / "windows/Setup K3LS.cmd", package / "Setup K3LS.cmd")
         shutil.copy2(script_root / "windows/Install K3LS.vbs", package / "Install K3LS.vbs")
         shutil.copy2(script_root.parent / "docs/transfer-backup.md", package / "READ ME.md")
         write_json(package / "manifest.json", {
@@ -248,6 +246,11 @@ def main():
                 if path.is_file():
                     archive.write(path, arcname=f"{name}/{path.relative_to(package).as_posix()}")
         archive_path.chmod(0o600)
+        print("Checking ZIP integrity...", flush=True)
+        with zipfile.ZipFile(archive_path) as archive:
+            broken_file = archive.testzip()
+            if broken_file is not None:
+                raise RuntimeError(f"ZIP integrity check failed: {broken_file}")
         checksum = sha256(archive_path)
         (output_dir / f"{archive_path.name}.sha256").write_text(f"{checksum}  {archive_path.name}\n")
         print(json.dumps({"package": str(package), "archive": str(archive_path),

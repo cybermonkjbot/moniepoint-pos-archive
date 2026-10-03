@@ -1,6 +1,5 @@
 param([switch]$Elevated, [string]$PackageRoot, [string]$WindowsScriptsRoot)
 $ErrorActionPreference = 'Stop'
-$distro = 'K3LS-Shop'
 $taskName = 'K3LS Shop Server'
 if (-not $PackageRoot) { $PackageRoot = Split-Path -Parent $PSScriptRoot }
 if (-not $WindowsScriptsRoot) { $WindowsScriptsRoot = $PSScriptRoot }
@@ -37,8 +36,12 @@ try {
     Write-Host 'Checking the backup files...'
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $packageRoot 'verify-transfer.ps1') -ForSetup
     if ($LASTEXITCODE -ne 0) { throw 'Backup verification failed. Copy the complete package again.' }
+    $fingerprint = (Get-FileHash -LiteralPath (Join-Path $packageRoot 'manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant()
+    $instanceId = $fingerprint.Substring(0, 12)
+    $distro = 'K3LS-Shop-' + $instanceId
     $localRoot = Join-Path $env:LOCALAPPDATA 'K3LS'
     New-Item -ItemType Directory -Path $localRoot -Force | Out-Null
+    Write-Host ('Linux environment: ' + $distro)
     Write-Host 'Checking Windows WSL2 features...'
     $wslFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
     $vmFeature = Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform
@@ -63,9 +66,12 @@ try {
     Write-Host ('Using installed WSL ' + $versionMatch.Value + '.')
     $registered = @(& wsl.exe --list --quiet | ForEach-Object { ($_ -replace "`0", '').Trim() })
     if ($LASTEXITCODE -ne 0) { throw 'WSL is not ready. Restart Windows and rerun setup.' }
-    $installLocation = Join-Path $localRoot 'Linux'
-    $fingerprint = (Get-FileHash -LiteralPath (Join-Path $packageRoot 'manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant()
-    $ownership = Join-Path $localRoot 'imported-backup-id.txt'
+    $instancesRoot = Join-Path $localRoot 'Instances'
+    $importsRoot = Join-Path $localRoot 'Imports'
+    New-Item -ItemType Directory -Path $instancesRoot -Force | Out-Null
+    New-Item -ItemType Directory -Path $importsRoot -Force | Out-Null
+    $installLocation = Join-Path $instancesRoot $instanceId
+    $ownership = Join-Path $importsRoot ($instanceId + '.txt')
     if ($registered -notcontains $distro) {
         if (Test-Path -LiteralPath $installLocation) { throw 'A previous Linux folder exists. Setup will not overwrite it.' }
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -90,7 +96,7 @@ try {
             $ownedImport = (Test-Path -LiteralPath $ownership) -and ((Get-Content -LiteralPath $ownership -Raw).Trim() -eq $fingerprint)
             $basePath = if ($registration) { $registration.BasePath -replace '^\\\\\?\\', '' } else { '' }
             $sameLocation = $registration -and ([IO.Path]::GetFullPath($basePath).TrimEnd('\') -eq [IO.Path]::GetFullPath($installLocation).TrimEnd('\'))
-            if (-not $ownedImport -or -not $sameLocation) { throw 'A different K3LS-Shop distribution already exists. Setup will not change it.' }
+            if (-not $ownedImport -or -not $sameLocation) { throw 'This Linux environment does not belong to the package. Setup will not change it.' }
         } else {
             $saved = Get-WslOutput -Arguments @('-d', $distro, '-u', 'root', '--exec', '/usr/bin/cat', '/opt/k3ls/.package-id')
             if ($saved -ne $fingerprint) { throw 'This installation belongs to another backup. Restoring over it is blocked.' }
@@ -130,6 +136,7 @@ try {
     Copy-Item -LiteralPath (Join-Path $windowsRoot 'start-windows.ps1') -Destination $stable -Force
     Copy-Item -LiteralPath (Join-Path $windowsRoot 'Start K3LS.cmd') -Destination $stable -Force
     Copy-Item -LiteralPath (Join-Path $windowsRoot 'Stop K3LS.cmd') -Destination $stable -Force
+    @{ distro = $distro; backup_manifest_sha256 = $fingerprint } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stable 'server.json') -Encoding ASCII
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + (Join-Path $stable 'start-windows.ps1') + '" -KeepAlive')
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User ([Security.Principal.WindowsIdentity]::GetCurrent().Name)
     $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew
