@@ -3,7 +3,7 @@
     const config = frappe.boot.k3ls_shop_ui;
     if (!config) return;
     // Discard cached page scripts, never draft or business data, after app updates.
-    const revision = "20261003-38";
+    const revision = "20261003-41";
     if (localStorage.getItem("k3ls-page-revision") !== revision) {
         for (const page_name of ["point-of-sale", "shop-repairs", "shop-accounts", "shop-money-owed", "permission-manager"]) {
             localStorage.removeItem(`_page:${page_name}`);
@@ -26,33 +26,60 @@
     frappe.k3ls_empty_basket = () => `<div class='k3ls-empty-basket' role='status'>
         <img src='/assets/moniepoint_pos/images/undraw-empty-cart.svg' alt=''>
         <p>${frappe.utils.escape_html(__("Choose a product to start a sale."))}</p></div>`;
+    const sale_choices = (parent, {product_sale, before_choose = () => {}} = {}) => {
+        const choices = $("<div class='k3ls-sale-choices'></div>").appendTo(parent);
+        const choose = async action => {before_choose(); await action();};
+        if (frappe.model.can_create("POS Invoice")) {
+            $("<button type='button' class='k3ls-sale-choice'></button>")
+                .append($("<span aria-hidden='true'></span>").html(frappe.utils.icon("shopping-cart", "lg")))
+                .append($("<strong></strong>").text(__("Product sale")))
+                .on("click", () => choose(product_sale || (() => frappe.set_route("point-of-sale"))))
+                .appendTo(choices);
+        }
+        if (frappe.model.can_create("K3LS Repair")) {
+            $("<button type='button' class='k3ls-sale-choice'></button>")
+                .append($("<span aria-hidden='true'></span>").html(frappe.utils.icon("wrench", "lg")))
+                .append($("<strong></strong>").text(__("Repair")))
+                .on("click", () => choose(() => {
+                    frappe.k3ls_pending_repair = true;
+                    return frappe.set_route("shop-repairs", {sidebar: frappe.app?.sidebar?.sidebar_title || "K3LS Shop"});
+                }))
+                .appendTo(choices);
+        }
+        if (!choices.children().length) choices.append($("<p></p>").text(__("You don't have access to create sales or repairs.")));
+        return choices;
+    };
     frappe.k3ls_new_sale = ({product_sale} = {}) => {
         if (frappe.boot.read_only) return Promise.resolve();
         return new Promise(resolve => {
             const dialog = new frappe.ui.Dialog({title: __("New sale"), fields: [{fieldname: "choices", fieldtype: "HTML"}]});
-            const choices = $("<div class='k3ls-sale-choices'></div>").appendTo(dialog.fields_dict.choices.$wrapper);
-            const choose = async action => {dialog.hide(); await action();};
-            if (frappe.model.can_create("POS Invoice")) {
-                $("<button type='button' class='k3ls-sale-choice'></button>")
-                    .append($("<span aria-hidden='true'></span>").html(frappe.utils.icon("shopping-cart", "lg")))
-                    .append($("<strong></strong>").text(__("Product sale")))
-                    .on("click", () => choose(product_sale || (() => frappe.set_route("point-of-sale"))))
-                    .appendTo(choices);
-            }
-            if (frappe.model.can_create("K3LS Repair")) {
-                $("<button type='button' class='k3ls-sale-choice'></button>")
-                    .append($("<span aria-hidden='true'></span>").html(frappe.utils.icon("wrench", "lg")))
-                    .append($("<strong></strong>").text(__("Repair")))
-                    .on("click", () => choose(() => {
-                        frappe.k3ls_pending_repair = true;
-                        return frappe.set_route("shop-repairs", {sidebar: frappe.app?.sidebar?.sidebar_title || "K3LS Shop"});
-                    }))
-                    .appendTo(choices);
-            }
-            if (!choices.children().length) choices.append($("<p></p>").text(__("You don't have access to create sales or repairs.")));
+            sale_choices(dialog.fields_dict.choices.$wrapper, {product_sale, before_choose: () => dialog.hide()});
             dialog.$wrapper.on("hidden.bs.modal", resolve);
             dialog.show();
         });
+    };
+    const is_blank_sale = frm => ["POS Invoice", "Sales Invoice"].includes(frm.doctype) && frm.is_new()
+        && !frm.doc.__k3ls_keep_invoice_form && !frm.doc.is_return && !frm.doc.return_against
+        && (!frm.doc.company || frm.doc.company === "K3LS LIMITED")
+        && (!frm.doc.customer || frm.doc.customer === "K3LS Walk-in Customer")
+        && !(frm.doc.items || []).some(row => row.item_code || flt(row.qty) || flt(row.rate) || row.serial_no || row.batch_no)
+        && !(frm.doc.payments || []).some(row => flt(row.amount))
+        && !flt(frm.doc.paid_amount) && !frm.doc.remarks && !frm.doc.contact_mobile && !frm.doc.contact_email
+        && !Object.keys(frm.doc).some(key => key.startsWith("custom_") && frm.doc[key]);
+    const present_sale_entry = frm => {
+        const show = is_blank_sale(frm) && !frm.k3ls_more_fields && !frappe.boot.read_only
+            && frappe.get_route()?.[0] === "Form" && frappe.get_route()?.[1] === frm.doctype;
+        frm.$wrapper.toggleClass("k3ls-sale-entry", show);
+        frm.page.wrapper.toggleClass("k3ls-sale-entry-page", show);
+        frm.k3ls_sale_entry?.toggle(show);
+        if (!show) return;
+        if (!frm.k3ls_sale_entry) {
+            frm.k3ls_sale_entry = $("<section class='k3ls-sale-entry-content'></section>")
+                .attr("aria-label", __("New sale")).insertBefore(frm.body);
+            sale_choices(frm.k3ls_sale_entry);
+        }
+        frm.k3ls_sale_entry.show();
+        frm.page.set_title(__("New sale"));
     };
     const new_doc = frappe.new_doc;
     frappe.new_doc = function (doctype, opts, init_callback) {
@@ -64,6 +91,13 @@
         if (doctype === "Purchase Invoice" && frappe.boot.k3ls_purchase_defaults && !init_callback && !opts?.is_return && !opts?.items
             && (!opts?.company || opts.company === frappe.boot.k3ls_purchase_defaults?.company)) {
             opts = {...frappe.boot.k3ls_purchase_defaults, update_stock: 1, ...opts};
+        }
+        if (["POS Invoice", "Sales Invoice"].includes(doctype)) {
+            const callback = init_callback;
+            init_callback = function (target) {
+                (target.doc || target).__k3ls_keep_invoice_form = true;
+                return callback?.call(this, target);
+            };
         }
         return new_doc.call(this, doctype, opts, init_callback);
     };
@@ -122,7 +156,7 @@
     const shortcuts = [
         {label: "POS", icon: "shopping-cart", route: ["point-of-sale"], doctype: "POS Invoice", matches: ["point-of-sale", "POS Invoice"]},
         {label: "Repairs", icon: "wrench", route: ["shop-repairs"], doctype: "K3LS Repair", matches: ["shop-repairs", "K3LS Repair"]},
-        {label: "Stock", icon: "package", route: ["List", "Item"], doctype: "Item", matches: ["Item"]},
+        {label: "Products", icon: "package", route: ["List", "Item"], doctype: "Item", matches: ["Item"]},
     ];
     for (const shortcut of shortcuts) {
         if (!frappe.model.can_read(shortcut.doctype)) continue;
@@ -519,6 +553,7 @@
                     const label = $(this).find(".menu-item-label").text().trim();
                     if (extra_actions.map(label => __(label)).includes(label)) $(this).closest("li").toggle(reveal);
                 });
+                present_sale_entry(frm);
         };
         frappe.ui.form.on(doctype, {setup(frm) {
             frm.$wrapper.addClass("k3ls-simple-form");
@@ -658,8 +693,10 @@
     };
     const after_load = frappe.ui.form.Form.prototype.run_after_load_hook;
     frappe.ui.form.Form.prototype.run_after_load_hook = function (...args) {
+        const result = after_load.apply(this, args);
+        present_sale_entry(this);
         if (config[this.doctype]) this.$wrapper.removeClass("k3ls-form-pending").attr("aria-busy", "false");
-        return after_load.apply(this, args);
+        return result;
     };
     $(document).on("form-refresh.k3ls-loading", (event, frm) => {
         if (config[frm.doctype]) frm.$wrapper.addClass("k3ls-form-pending").attr("aria-busy", "true");
@@ -808,6 +845,9 @@
         sidebar.resolve_sidebar = function (entity, module) {
             const url_sidebar = new URLSearchParams(location.search).get("sidebar")?.replace(/^"|"$/g, "");
             if (frappe.get_route()?.[0] === "permission-manager" && this.all_sidebar_items["k3ls owner"]) return "K3LS Owner";
+            if (["POS Invoice", "Sales Invoice"].includes(entity) && frappe.get_route()?.[0] === "Form"
+                && frappe.get_route()?.[2]?.startsWith("new-") && !url_sidebar && !frappe.route_options?.sidebar
+                && frappe.user.has_role("System Manager") && this.all_sidebar_items["k3ls owner"]) return "K3LS Owner";
             if (["POS Invoice", "Item", "shop-repairs", "K3LS Repair"].includes(entity)
                 && (frappe.route_options?.sidebar || url_sidebar || this.sidebar_title) === "K3LS Owner"
                 && this.all_sidebar_items["k3ls owner"]) return "K3LS Owner";

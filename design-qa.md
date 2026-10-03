@@ -69,3 +69,15 @@ Phone evidence at 390 x 844 includes `new-sale-phone-final.jpg`, `restock-paymen
 - User Details had full-width readable fields. Roles, passwords and account values were not changed. The supplied logo was left-aligned above the workspace title.
 
 Remaining gaps include record save/submission, stock posting, payment collection, role-change behavior under restricted users, full form-load failure recovery, keyboard/text-scale coverage and full mobile theme coverage. Existing socket polling errors remain. These checks used the already-running site; no tests, lint, typechecks, builds, bundling, compilation or additional servers were run.
+
+## Direct admin sale routes
+
+The reported blank new POS Invoice route bypassed Add Sale and opened the ERPNext form with Series, warehouse, checkout profile and five tabs. It also selected Shop, whose Item link was labelled Stock. Owner already had a Products link, but was not the selected sidebar.
+
+`admin-sale-direct-before.jpg` and `admin-sale-direct-final.jpg` use the same blank route, Administrator and 1280 x 720 viewport. The final capture shows New sale with Product sale and Repair choices, plus Owner Products. Choosing Product sale opened the existing POS and empty basket. Returning and choosing Repair opened New repair intake in Owner. Owner Products opened the populated Item list. No forms were saved and the user's original browser tab was not refreshed or navigated.
+
+An intermediate render hid the choices inside the standard form container. The section now sits outside that container. `admin-sale-direct-phone-final.jpg` shows both choices at 390 x 844 with the drawer closed. The viewport was reset and the desktop sidebar restored afterward. Shop and the phone dock now label Item as Products too.
+
+Source review covered guards for populated drafts, returns, repair links, other companies and callback initialization. These paths retain the invoice form. Frappe's full-form callback receives a document; quick entry receives a dialog. The preservation marker handles both without changing callback arguments or context. The after-load hook runs before the final choice-screen decision, keeping callback-populated forms available. These safeguards were source-reviewed, not exercised through saved transactions.
+
+No tests, lint, typechecks, builds, compilation, bundling or new servers were run. Restricted users, saved invoice transitions, quick-entry callbacks and keyboard/text-scale coverage remain unexercised.

@@ -62,7 +62,7 @@ POS collection records money already received through ERPNext's supported update
 
 ## App-style presentation
 
-Shop screens use white surfaces and blue highlights. Owner screens use dark navy surfaces and light text. Desktop retains the sidebar and two-column POS. Phones get POS, Repairs, Stock and More navigation, limited by record read permissions. POS has Products/Basket panels; new repair intake has Device/Problem/Customer panels with a fixed primary action. The dock is hidden during dialogs, text entry and navigation-drawer use. Existing ledger tables and permissions are retained.
+Shop screens use white surfaces and blue highlights. Owner screens use dark navy surfaces and light text. Desktop retains the sidebar and two-column POS. Phones get POS, Repairs, Products and More navigation, limited by record read permissions. POS has Products/Basket panels; new repair intake has Device/Problem/Customer panels with a fixed primary action. The dock is hidden during dialogs, text entry and navigation-drawer use. Existing ledger tables and permissions are retained.
 
 The supplied loading logo is cropped vertically from 447 x 447 to 447 x 93, with the original untouched. Moniepoint uses its real wordmark in Settings and brand mark in the sidebar. Owner Users opens ERPNext's existing user management; no separate staff directory or payroll implementation is included.
 
@@ -84,7 +84,7 @@ The twelve configured shop lists use one search for names, IDs, contact details 
 
 Owner navigation includes Repairs and Products. `navigation.add_owner_repairs` and `navigation.add_owner_products` update only those links and the Restock label, preserving other navigation and access. Product forms use the existing Item manager. Everyday list menus omit import, permission, customization, quick-filter and list-settings shortcuts. Reports remain available. Users also has a Shop access shortcut.
 
-Add Sale offers Product sale or Repair. Plain new sales route to POS or repair intake. Prefilled records, mappings, returns and initialization callbacks keep the original creation path. Empty POS baskets show one message with the licensed unDraw Empty cart illustration and cannot enter checkout. See `moniepoint_pos/public/images/undraw-source.md` for the asset source and license.
+Add Sale offers Product sale or Repair. Direct blank new POS Invoice and Sales Invoice routes show the same choices instead of the invoice form. Product sale opens POS; Repair opens intake. Populated drafts, returns, repair-linked invoices, other-company forms and initialization callbacks keep the original creation path. A direct new invoice route without sidebar context defaults to Owner for a System Manager. Both sidebars call the Item link Products; `navigation.name_shop_products` updates the existing Shop link without changing access. Empty POS baskets show one message with the licensed unDraw Empty cart illustration and cannot enter checkout. See `moniepoint_pos/public/images/undraw-source.md` for the asset source and license.
 
 New Restock forms reveal products after supplier selection, then totals and payment after a product is added. Earlier details stay editable. There is no step counter or Continue button. Supplier references are optional. Paid now reveals the payment method and amount, with Pay by retained for unpaid or partly paid purchases. Saved records, returns and More fields retain the broader form. Defaults come from the only readable active client checkout profile. No stock is posted by opening the form.
 

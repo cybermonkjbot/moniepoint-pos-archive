@@ -7,7 +7,7 @@ SECTION_ICONS = {
         "POS": "shopping-cart",
         "Repairs": "wrench",
         "Sales": "receipt",
-        "Stock": "package",
+        "Products": "package",
         "Customers": "users",
     },
     "K3LS Owner": {
@@ -52,7 +52,7 @@ def configure():
     frappe.only_for("System Manager")
     definitions = {
         "K3LS Shop": [("POS", "point-of-sale"), ("Repairs", "shop-repairs" if frappe.db.exists("Page", "shop-repairs") else "K3LS Repair" if frappe.db.exists("DocType", "K3LS Repair") else "Issue"),
-            ("Sales", "POS Invoice"), ("Stock", "Item"), ("Customers", "Customer")],
+            ("Sales", "POS Invoice"), ("Products", "Item"), ("Customers", "Customer")],
         "K3LS Owner": [("Sales", "POS Invoice"), ("Money in/out", "Payment Entry"), ("Money owed", "shop-money-owed" if frappe.db.exists("Page", "shop-money-owed") else "Sales Invoice"), ("Suppliers", "Supplier"),
             ("Restock", "Purchase Invoice"), ("Accounts", "shop-accounts" if frappe.db.exists("Page", "shop-accounts") else "Account"),
             ("Checkout settings", "POS Profile"), ("Moniepoint settings", "Moniepoint Settings"),
@@ -159,6 +159,21 @@ def add_owner_products():
     existing.route_options = frappe.as_json({"sidebar": "K3LS Owner"})
     for index, item in enumerate(sidebar.items, 1):
         item.idx = index
+    sidebar.save()
+    frappe.clear_cache()
+    frappe.db.commit()
+    return {"sidebar": sidebar.name, "products": "Item"}
+
+
+def name_shop_products():
+    """Use the same product label in both workspaces without changing access."""
+    frappe.only_for("System Manager")
+    sidebar = frappe.get_doc("Workspace Sidebar", "K3LS Shop")
+    for item in sidebar.items:
+        if item.link_to == "Item":
+            item.label = "Products"
+            item.icon = "package"
+            item.route_options = frappe.as_json({"sidebar": sidebar.name})
     sidebar.save()
     frappe.clear_cache()
     frappe.db.commit()
