@@ -24,18 +24,21 @@ try {
         $child = Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
         exit $child.ExitCode
     }
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $packageRoot 'verify-transfer.ps1')
+    Write-Host 'Checking the backup files...'
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $packageRoot 'verify-transfer.ps1') -ForSetup
     if ($LASTEXITCODE -ne 0) { throw 'Backup verification failed. Copy the complete package again.' }
     $localRoot = Join-Path $env:LOCALAPPDATA 'K3LS'
     New-Item -ItemType Directory -Path $localRoot -Force | Out-Null
+    Write-Host 'Checking Windows WSL2 features...'
     $wslFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
     $vmFeature = Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform
     if ($wslFeature.State -ne 'Enabled' -or $vmFeature.State -ne 'Enabled') {
         Write-Host 'Enabling WSL2. Windows may need a restart; run this same script again afterward.'
         Invoke-Wsl -Arguments @('--install', '--no-distribution')
-        Write-Host 'Restart Windows, then double-click Setup K3LS.cmd again.'
+        Write-Host 'Restart Windows, then double-click Install K3LS.vbs again.'
         exit 0
     }
+    Write-Host 'Updating WSL...'
     Invoke-Wsl -Arguments @('--update')
     & wsl.exe --version | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Update the WSL app from Microsoft, restart Windows and rerun setup.' }

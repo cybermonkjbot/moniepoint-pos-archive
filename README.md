@@ -7,9 +7,11 @@ ERPNext custom app for API-key terminal integration. Disabled by default.
 The repeatable [transfer exporter](scripts/export_transfer_backup.py) preserves the
 complete site database, files, encryption key, exact source, available Git history
 and compiled assets. See [transfer instructions](docs/transfer-backup.md). The
-Windows verifier checks copied files. `Setup K3LS.cmd` installs an isolated WSL2
+Windows verifier checks copied files. Double-click `Install K3LS.vbs` to open
+administrator PowerShell directly and keep the results and installation log.
+The setup script installs an isolated WSL2
 runtime and restores the saved shop with its existing accounts and passwords.
-The Windows installer has not yet run on the target PC. Docker and Homebrew are not used.
+Successful installation on the target PC remains unverified. Docker and Homebrew are not used.
 Native Windows hosting and PHP server bundles are not supported by this Frappe setup.
 
 After installation, a System Manager configures Moniepoint Settings and a Moniepoint Terminal for each POS Profile. Credentials are encrypted Frappe Password fields and remain server-side. The API-key connection uses the published production API contract. Client credentials can be stored separately, but client-ID token exchange is blocked until Moniepoint confirms its HTTPS environment endpoints. See `docs/moniepoint-client-auth.md` for the documented exchange and remaining gaps.

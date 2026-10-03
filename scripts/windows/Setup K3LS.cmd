@@ -1,9 +1,7 @@
 @echo off
-if exist "%~dp0windows\setup-windows.ps1" (
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0windows\setup-windows.ps1"
+if exist "%~dp0windows\launch-setup.ps1" (
+  start "K3LS installation" powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -File "%~dp0windows\launch-setup.ps1"
 ) else (
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0setup-windows.ps1"
+  start "K3LS installation" powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -File "%~dp0launch-setup.ps1"
 )
-set "K3LS_RESULT=%ERRORLEVEL%"
-pause
-exit /b %K3LS_RESULT%
+exit /b

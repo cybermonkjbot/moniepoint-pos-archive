@@ -1,3 +1,4 @@
+param([switch]$ForSetup)
 $ErrorActionPreference = 'Stop'
 try {
     $manifestPath = Join-Path $PSScriptRoot 'manifest.json'
@@ -16,7 +17,11 @@ try {
         }
     }
     Write-Host 'Backup verified. Database, files and source archives are intact.'
-    Write-Host 'This checks the transfer. It does not install or start ERPNext on Windows.'
+    if ($ForSetup) {
+        Write-Host 'File check passed. Continuing installation...'
+    } else {
+        Write-Host 'This checks the transfer. It does not install or start ERPNext on Windows.'
+    }
     exit 0
 } catch {
     Write-Host "Backup verification failed: $($_.Exception.Message)" -ForegroundColor Red

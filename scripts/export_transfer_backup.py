@@ -227,6 +227,7 @@ def main():
         shutil.copy2(script_root / "Verify Backup.cmd", package / "Verify Backup.cmd")
         shutil.copytree(script_root / "windows", package / "windows")
         shutil.copy2(script_root / "windows/Setup K3LS.cmd", package / "Setup K3LS.cmd")
+        shutil.copy2(script_root / "windows/Install K3LS.vbs", package / "Install K3LS.vbs")
         shutil.copy2(script_root.parent / "docs/transfer-backup.md", package / "READ ME.md")
         write_json(package / "manifest.json", {
             "format": "k3ls-transfer-v1", "site": args.site,

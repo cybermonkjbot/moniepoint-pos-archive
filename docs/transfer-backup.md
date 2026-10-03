@@ -46,7 +46,11 @@ settings were reset for this export.
 
 Use a 64-bit Intel/AMD Windows 10 PC, version 2004 or newer, with virtualization
 enabled and internet access. Extract the entire ZIP to a local drive. Double-click
-`Setup K3LS.cmd` at the top of the extracted folder and approve Windows elevation.
+`Install K3LS.vbs` at the top of the extracted folder and approve Windows elevation.
+It opens PowerShell directly, without a Command Prompt window. PowerShell stays
+open after success, a restart request or failure. Installation output is also
+saved under `installation-logs` in the extracted folder.
+`Setup K3LS.cmd` remains available as a compatibility launcher for the same window.
 If setup enables WSL2 and asks for a restart, restart and run the same file again.
 
 The script imports a dedicated Ubuntu 24.04 WSL2 distribution named `K3LS-Shop`,
@@ -64,7 +68,7 @@ process keeps the distribution active rather than relying on systemd alone.
 The PC must remain powered on and awake. The script does not change sleep or
 firewall settings and does not configure access from other computers or the internet.
 
-The installer has been reviewed in source but has not run on Windows. Preserve
+The installer has been reviewed in source but has not run successfully on Windows. Preserve
 the original ZIP and Mac installation until the Windows shop and login have
 been checked.
 
