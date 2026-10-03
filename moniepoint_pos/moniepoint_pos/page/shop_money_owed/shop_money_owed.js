@@ -8,6 +8,7 @@ frappe.pages["shop-money-owed"].on_page_load = function (wrapper) {
     wrapper.refresh = async () => {
         const token = ++request;
         content.attr("aria-busy", "true");
+        frappe.k3ls_loading(content, "Loading balances");
         try {
             const {message: data} = await frappe.call({method: "moniepoint_pos.receivables.overview", type: "GET"});
             if (token !== request) return;
@@ -27,11 +28,12 @@ frappe.pages["shop-money-owed"].on_page_load = function (wrapper) {
                 return;
             }
             const list = $("<div class='k3ls-owed-list'></div>").appendTo(content);
-            $("<input type='search' class='form-control' placeholder='Find customer' aria-label='Find customer'>")
-                .insertBefore(list).on("input", function () {
+            const search_input = $("<input type='search' class='form-control' placeholder='Search customers' aria-label='Search customers'>")
+                .on("input", function () {
                     const term = this.value.toLowerCase().trim();
                     list.find(".k3ls-owed-row").each(function () {$(this).toggle($(this).text().toLowerCase().includes(term));});
                 });
+            frappe.k3ls_search_field(search_input).insertBefore(list);
             for (const customer of data.customers) {
                 const row = $("<button type='button' class='k3ls-owed-row'></button>").appendTo(list)
                     .on("click", () => show_customer(customer.customer, customer.customer_name));

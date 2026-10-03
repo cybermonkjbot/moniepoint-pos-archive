@@ -34,7 +34,8 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
 
             make_search_bar() {
                 super.make_search_bar();
-                this.search_field.$input.attr({placeholder: __("Find a product or scan a barcode"), "aria-label": __("Find products")});
+                this.search_field.$input.attr({type: "search", placeholder: __("Search products or scan barcode"), "aria-label": __("Search products")});
+                frappe.k3ls_search_field(this.search_field.$input);
                 this.search_field.$wrapper.find(".tooltip-content").remove();
                 this.$component.find(".item-group-field").hide();
                 // A name search must not add a product before it is chosen.
@@ -49,6 +50,7 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
             async filter_items({search_term=""}={}) {
                 const request = this.shop_search_request = (this.shop_search_request || 0) + 1;
                 this.start_item_loading_animation();
+                frappe.k3ls_loading(this.$items_container, "Loading products");
                 try {
                     const {message} = await this.get_items({search_term});
                     if (request !== this.shop_search_request) return;
@@ -58,7 +60,7 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
                     this.$items_container.empty().append($("<p></p>").text(__("Products could not load.")));
                     $("<button type='button' class='btn btn-default'></button>").text(__("Retry"))
                         .on("click", () => this.filter_items({search_term})).appendTo(this.$items_container);
-                } finally {if (request === this.shop_search_request) this.stop_item_loading_animation();}
+                } finally {if (request === this.shop_search_request) {this.stop_item_loading_animation(); this.$items_container.attr("aria-busy", "false");}}
             }
 
             render_item_list(items) {
@@ -115,6 +117,7 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
             prepare_btns() {
                 super.prepare_btns();
                 if (this.pos_profile !== "K3LS Shop") return;
+                this.page.set_primary_action(__("New sale"), this.new_invoice_event.bind(this));
                 this.page.add_inner_button(__("Repairs"), () => frappe.set_route("shop-repairs"));
             }
 
@@ -126,6 +129,12 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
             init_item_cart() {
                 super.init_item_cart();
                 if (this.pos_profile !== "K3LS Shop") return;
+                this.cart.make_no_items_placeholder = () => {
+                    this.cart.$cart_header.hide();
+                    this.cart.$cart_items_wrapper.html(`<div class='no-item-wrapper'>${frappe.k3ls_empty_basket()}</div>`);
+                };
+                const has_products = (this.frm?.doc.items || []).some(row => row.item_code && flt(row.qty));
+                if (!has_products) this.cart.make_no_items_placeholder();
                 // Native buttons retain the core delegated click handlers.
                 this.cart.$component.find(".checkout-btn, .edit-cart-btn").each(function () {
                     const old = $(this);
@@ -137,7 +146,30 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
                     highlight(enabled);
                     this.cart.$component.find(".checkout-btn").prop("disabled", !enabled);
                 };
-                this.cart.highlight_checkout_btn(false);
+                this.cart.highlight_checkout_btn(has_products);
+            }
+
+            new_invoice_event() {
+                if (this.pos_profile !== "K3LS Shop") return super.new_invoice_event();
+                return frappe.k3ls_new_sale({product_sale: () => this.start_product_sale()});
+            }
+
+            start_product_sale() {
+                if (this.pos_profile === "K3LS Shop" && !(this.frm.doc.items || []).some(row => row.item_code && flt(row.qty))) {
+                    this.cart.make_no_items_placeholder();
+                    this.cart.highlight_checkout_btn(false);
+                    return;
+                }
+                return super.new_invoice_event();
+            }
+
+            async save_and_checkout() {
+                if (this.pos_profile === "K3LS Shop" && !(this.frm.doc.items || []).some(row => row.item_code && flt(row.qty))) {
+                    this.cart.make_no_items_placeholder();
+                    this.cart.highlight_checkout_btn(false);
+                    return;
+                }
+                return super.save_and_checkout();
             }
 
             init_payments() {

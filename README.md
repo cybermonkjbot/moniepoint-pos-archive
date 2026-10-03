@@ -38,7 +38,7 @@ Applied to the local site. Inspected the opening screen at wide and narrow width
 
 ## Shop screens
 
-`moniepoint_pos.shop_ui.configure` applies short labels and focused list columns. The browser customization is active only on the K3LS site. Products, Repairs, Customers, Suppliers, Purchases, Sales, Money in/out and Checkout settings hide unrelated fields. An owner can reveal the original fields through Menu > More fields without saving any record.
+`moniepoint_pos.shop_ui.configure` applies short labels and focused list columns. The browser customization is active only on the K3LS site. Products, Repairs, Customers, Suppliers, Restock, Sales, Money in/out and Checkout settings hide unrelated fields. An owner can reveal the original fields through Menu > More fields without saving any record.
 
 Headers use one page heading instead of breadcrumbs. Everyday lists open as lists rather than the last report or board view. The view selector, saved-filter selector and supplier/customer report and creation menus are not shown in the header. Owners can open the report from the list menu. Essential filters, exports, confirmations and accounting permissions remain intact.
 
@@ -77,3 +77,17 @@ Checkout settings shows two read-only payment cards. Country, active status, rec
 Tax setup controls, including item-row tax templates, are hidden across the routine shop forms. Tax rules, invoice calculations and nonzero amount disclosures are not removed or reset. More fields restores the administrator's original controls. Hiding controls is not an authorization boundary.
 
 Moniepoint's published Push Payment Request documentation lists `CARD_PURCHASE`, `POS_TRANSFER` and `ANY`. New terminal dialogs default to Card or transfer, Moniepoint and the only active shop, with Use terminal off. This does not enable credentials or settle invoices. Source: TeamApt page 1039826999, version 20, updated 22 January 2025, retrieved 3 October 2026. See `docs/moniepoint-client-auth.md` for the official documentation URL and unresolved connection prerequisites.
+
+## Focused lists and everyday flows
+
+The twelve configured shop lists use one search for names, IDs, contact details and references. Lists with date or status fields also recognize dates and supported status words. Existing Filter dialog values remain active. Queries use Frappe's permitted fields, row permissions, pagination and count logic. Search and the Owner sidebar context survive refresh. Search controls have a magnifying-glass icon and clear action. The supplied logo sits left-aligned above the sidebar title.
+
+Owner navigation includes Repairs and Products. `navigation.add_owner_repairs` and `navigation.add_owner_products` update only those links and the Restock label, preserving other navigation and access. Product forms use the existing Item manager. Everyday list menus omit import, permission, customization, quick-filter and list-settings shortcuts. Reports remain available. Users also has a Shop access shortcut.
+
+Add Sale offers Product sale or Repair. Plain new sales route to POS or repair intake. Prefilled records, mappings, returns and initialization callbacks keep the original creation path. Empty POS baskets show one message with the licensed unDraw Empty cart illustration and cannot enter checkout. See `moniepoint_pos/public/images/undraw-source.md` for the asset source and license.
+
+New Restock forms reveal products after supplier selection, then totals and payment after a product is added. Earlier details stay editable. There is no step counter or Continue button. Supplier references are optional. Paid now reveals the payment method and amount, with Pay by retained for unpaid or partly paid purchases. Saved records, returns and More fields retain the broader form. Defaults come from the only readable active client checkout profile. No stock is posted by opening the form.
+
+Users shows Details, Access and Password, retaining core role assignments and password actions. Shop access focuses the existing permission manager on shop screens and roles. View, Add, Edit, Confirm and Print are shown, with Own records only preserved. Higher permission levels, other roles and technical rights remain in More options. Changes use the core permission endpoints and save immediately when an operator edits them. This presentation change did not alter saved permissions or grant users access.
+
+Rendered review covered desktop list menus, Owner Products, user details, sale choices and progressive Restock, plus phone sale choices, Restock payment and Shop access. No tests, lint, builds, compilation, bundling or extra servers were run. No records, permissions, stock or payments were saved during review. Transactional and full failure-state validation remain deferred.

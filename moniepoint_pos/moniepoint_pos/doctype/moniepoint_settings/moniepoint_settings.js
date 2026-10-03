@@ -38,6 +38,8 @@ function setup_moniepoint_admin(frm) {
     const reload = async () => {
         const token = ++state.token;
         terminals.attr("aria-busy", "true"); payments.attr("aria-busy", "true");
+        frappe.k3ls_loading(terminals, "Loading terminals");
+        frappe.k3ls_loading(payments, "Loading payment requests");
         try {
             const {message: data} = await frappe.call({method: "moniepoint_pos.settings.overview", type: "GET",
                 args: {request_state: state.request_state, provider_state: state.provider_state, start: state.start}});

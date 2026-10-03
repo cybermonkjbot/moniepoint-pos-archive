@@ -7,7 +7,7 @@ frappe.pages["shop-accounts"].on_page_load = function (wrapper) {
         if (loading) return;
         loading = true;
         content.attr("aria-busy", "true");
-        content.empty().append($("<p class='text-muted'></p>").text(__("Loading accounts…")));
+        frappe.k3ls_loading(content, "Loading accounts");
         try {
             const {message: data} = await frappe.call({method: "moniepoint_pos.accounts.overview", type: "GET"});
             content.empty();

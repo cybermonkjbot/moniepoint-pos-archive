@@ -8,21 +8,38 @@ frappe.pages["shop-repairs"].on_page_load = function (wrapper) {
     let selected = "Active", search = "", start = 0, request = 0, timer;
     const toolbar = $("<div class='k3ls-repair-toolbar'></div>").appendTo(content);
     const filters = $("<div class='k3ls-repair-filters' role='group' aria-label='Repair status'></div>").appendTo(toolbar);
-    $("<input type='search' class='form-control' placeholder='Find customer, device or repair' aria-label='Find repairs'>")
-        .appendTo(toolbar).on("input", function () {
+    const search_input = $("<input type='search' class='form-control' placeholder='Search repairs, devices or customers' aria-label='Search repairs'>")
+        .on("input", function () {
             clearTimeout(timer);
             timer = setTimeout(() => {search = this.value.trim(); start = 0; wrapper.refresh();}, 250);
         });
+    frappe.k3ls_search_field(search_input).appendTo(toolbar);
     const results = $("<div class='k3ls-repair-results' aria-live='polite'></div>").appendTo(content);
     const pager = $("<div class='k3ls-repair-pager'></div>").appendTo(content);
     let intake = null;
     page.set_secondary_action(__("Refresh"), () => wrapper.refresh());
     page.add_menu_item(__("All repair records"), () => frappe.set_route("List", "K3LS Repair"));
 
+    wrapper.show = () => {
+        const options = frappe.route_options || {};
+        const url = new URL(location.href);
+        // Core sidebar handling consumes route_options before the page opens.
+        const start_new = Boolean(frappe.k3ls_pending_repair || options.k3ls_new_repair || url.searchParams.get("k3ls_new_repair") === "1");
+        frappe.k3ls_pending_repair = false;
+        delete options.k3ls_new_repair;
+        if (url.searchParams.has("k3ls_new_repair")) {
+            url.searchParams.delete("k3ls_new_repair");
+            history.replaceState(history.state, "", url);
+        }
+        if (start_new && !frappe.boot.read_only && frappe.model.can_create("K3LS Repair")) start_intake();
+        else wrapper.refresh();
+    };
     wrapper.refresh = async () => {
         if (intake) return;
         const token = ++request;
         results.attr("aria-busy", "true");
+        frappe.k3ls_loading(results, "Loading repairs");
+        pager.empty();
         try {
             const {message: data} = await frappe.call({method: "moniepoint_pos.repairs.overview", type: "GET",
                 args: {status: selected, search, start}});
@@ -422,4 +439,4 @@ frappe.pages["shop-repairs"].on_page_load = function (wrapper) {
         dialog.show();
     }
 };
-frappe.pages["shop-repairs"].on_page_show = wrapper => wrapper.refresh?.();
+frappe.pages["shop-repairs"].on_page_show = wrapper => wrapper.show?.();

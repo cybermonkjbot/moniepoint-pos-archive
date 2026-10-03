@@ -106,6 +106,14 @@ FORMS["POS Invoice"]["labels"].update({
 for _doctype in ("Purchase Invoice", "POS Invoice", "Sales Invoice"):
     FORMS[_doctype]["labels"].update({"grand_total": "Total", "outstanding_amount": "Left to pay"})
 FORMS["Account"] = {"hide": [], "labels": {}, "defaults": {}, "columns": [], "filters": [], "keep_id": True, "presentation_only": True}
+FORMS["User"] = {
+    "hide": [], "labels": {"user_details_tab": "Details", "roles_permissions_tab": "Access",
+        "settings_tab": "Password", "section_break_3": "", "first_name": "First name",
+        "last_name": "Last name", "enabled": "Active", "sb1": "Access", "mobile_no": "Mobile",
+        "new_password": "New password", "logout_all_sessions": "Sign out other devices"},
+    "defaults": {}, "columns": ["full_name", "email", "enabled"], "filters": ["enabled"],
+    "keep_id": False, "presentation_only": True,
+}
 
 CHILD_LABELS = {
     "Payment Entry Reference": {"reference_doctype": "Type", "reference_name": "Invoice", "total_amount": "Total", "outstanding_amount": "Unpaid", "allocated_amount": "Payment", "due_date": "Pay by"},
@@ -120,6 +128,20 @@ def presentation_config():
     """Omit tax setup controls, not tax calculations or recorded amounts."""
     import copy
     config = copy.deepcopy(FORMS)
+    user_fields = {"user_details_tab", "enabled", "section_break_3", "email", "first_name", "last_name",
+        "column_break0", "column_break_11", "roles_permissions_tab", "sb1", "roles_html", "roles",
+        "phone", "mobile_no", "settings_tab", "change_password", "new_password", "logout_all_sessions"}
+    config["User"]["hide"] = [df.fieldname for df in frappe.get_meta("User").fields if df.fieldname not in user_fields]
+    purchase_fields = {"supplier", "supplier_name", "posting_date", "due_date", "is_paid", "is_return", "return_against",
+        "bill_no", "bill_date", "items", "update_stock", "mode_of_payment", "paid_amount", "grand_total",
+        "rounded_total", "rounding_adjustment", "total_taxes_and_charges", "discount_amount", "outstanding_amount", "remarks"}
+    purchase_meta = frappe.get_meta("Purchase Invoice")
+    config["Purchase Invoice"]["hide"].extend(df.fieldname for df in purchase_meta.fields
+        if df.fieldtype not in ("Column Break", "Section Break") and df.fieldname not in purchase_fields)
+    config["Purchase Invoice"]["labels"].update({"is_paid": "Paid now", "mode_of_payment": "Paid with", "paid_amount": "Amount paid",
+        "update_stock": "Add to stock", "bill_no": "Supplier reference", "bill_date": "Supplier receipt date",
+        "supplier_invoice_details": "Supplier receipt", "items": "Products", "sec_warehouse": "Products",
+        "due_date": "Pay by", "is_return": "Return to supplier", "return_against": "Original purchase"})
     for doctype, settings in config.items():
         if settings.get("presentation_only"):
             continue
@@ -139,10 +161,15 @@ def boot_session(bootinfo):
     if not enabled():
         return
     bootinfo.k3ls_shop_ui = presentation_config()
+    from moniepoint_pos.list_search import LISTS
+    for doctype, search in LISTS.items():
+        bootinfo.k3ls_shop_ui[doctype]["search_title"] = search["title"]
     # Only skip the list when this user can read exactly one active client till.
     profiles = frappe.get_list("POS Profile", filters={"company": "K3LS LIMITED", "disabled": 0},
-        fields=["name"], limit_page_length=2) if frappe.has_permission("POS Profile", "read") else []
+        fields=["name", "warehouse", "company"], limit_page_length=2) if frappe.has_permission("POS Profile", "read") else []
     bootinfo.k3ls_till_profile = profiles[0].name if len(profiles) == 1 else None
+    if len(profiles) == 1:
+        bootinfo.k3ls_purchase_defaults = {"company": profiles[0].company, "set_warehouse": profiles[0].warehouse}
     # Keep all record permissions unchanged. Only filter navigation presented to this site.
     bootinfo.workspace_sidebar_item = {key: value for key, value in bootinfo.workspace_sidebar_item.items() if key in ("k3ls shop", "k3ls owner", "my workspaces")}
 

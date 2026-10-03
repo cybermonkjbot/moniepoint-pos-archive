@@ -2,7 +2,90 @@
 (() => {
     const config = frappe.boot.k3ls_shop_ui;
     if (!config) return;
+    // Discard cached page scripts, never draft or business data, after app updates.
+    const revision = "20261003-38";
+    if (localStorage.getItem("k3ls-page-revision") !== revision) {
+        for (const page_name of ["point-of-sale", "shop-repairs", "shop-accounts", "shop-money-owed", "permission-manager"]) {
+            localStorage.removeItem(`_page:${page_name}`);
+        }
+        localStorage.setItem("k3ls-page-revision", revision);
+    }
+    frappe.k3ls_role_labels = {"System Manager": "Owner / administrator", "Sales User": "Sales",
+        "Sales Manager": "Manage sales", "Stock User": "Products", "Stock Manager": "Manage products",
+        "Purchase User": "Restock", "Purchase Manager": "Manage restock",
+        "Accounts User": "Money in/out", "Accounts Manager": "Manage accounts", "K3LS Repair Staff": "Repairs"};
     document.body.classList.add("k3ls-shop");
+    frappe.k3ls_search_field = input => {
+        if (input.parent().hasClass("k3ls-search-field")) return input.parent();
+        const area = $("<div class='k3ls-search-field' role='search'></div>");
+        if (input.parent().length) area.insertBefore(input);
+        $("<span class='k3ls-search-symbol' aria-hidden='true'></span>").html(frappe.utils.icon("search", "md")).appendTo(area);
+        input.appendTo(area);
+        return area;
+    };
+    frappe.k3ls_empty_basket = () => `<div class='k3ls-empty-basket' role='status'>
+        <img src='/assets/moniepoint_pos/images/undraw-empty-cart.svg' alt=''>
+        <p>${frappe.utils.escape_html(__("Choose a product to start a sale."))}</p></div>`;
+    frappe.k3ls_new_sale = ({product_sale} = {}) => {
+        if (frappe.boot.read_only) return Promise.resolve();
+        return new Promise(resolve => {
+            const dialog = new frappe.ui.Dialog({title: __("New sale"), fields: [{fieldname: "choices", fieldtype: "HTML"}]});
+            const choices = $("<div class='k3ls-sale-choices'></div>").appendTo(dialog.fields_dict.choices.$wrapper);
+            const choose = async action => {dialog.hide(); await action();};
+            if (frappe.model.can_create("POS Invoice")) {
+                $("<button type='button' class='k3ls-sale-choice'></button>")
+                    .append($("<span aria-hidden='true'></span>").html(frappe.utils.icon("shopping-cart", "lg")))
+                    .append($("<strong></strong>").text(__("Product sale")))
+                    .on("click", () => choose(product_sale || (() => frappe.set_route("point-of-sale"))))
+                    .appendTo(choices);
+            }
+            if (frappe.model.can_create("K3LS Repair")) {
+                $("<button type='button' class='k3ls-sale-choice'></button>")
+                    .append($("<span aria-hidden='true'></span>").html(frappe.utils.icon("wrench", "lg")))
+                    .append($("<strong></strong>").text(__("Repair")))
+                    .on("click", () => choose(() => {
+                        frappe.k3ls_pending_repair = true;
+                        return frappe.set_route("shop-repairs", {sidebar: frappe.app?.sidebar?.sidebar_title || "K3LS Shop"});
+                    }))
+                    .appendTo(choices);
+            }
+            if (!choices.children().length) choices.append($("<p></p>").text(__("You don't have access to create sales or repairs.")));
+            dialog.$wrapper.on("hidden.bs.modal", resolve);
+            dialog.show();
+        });
+    };
+    const new_doc = frappe.new_doc;
+    frappe.new_doc = function (doctype, opts, init_callback) {
+        // Mapped, prefilled and callback-initialised documents keep their values and core path.
+        if (["POS Invoice", "Sales Invoice"].includes(doctype) && !init_callback
+            && !Object.keys(opts || {}).some(key => key !== "sidebar")) {
+            return frappe.k3ls_new_sale();
+        }
+        if (doctype === "Purchase Invoice" && frappe.boot.k3ls_purchase_defaults && !init_callback && !opts?.is_return && !opts?.items
+            && (!opts?.company || opts.company === frappe.boot.k3ls_purchase_defaults?.company)) {
+            opts = {...frappe.boot.k3ls_purchase_defaults, update_stock: 1, ...opts};
+        }
+        return new_doc.call(this, doctype, opts, init_callback);
+    };
+    // Blank grid rows are not products. Stop before core generates setup-field errors.
+    const check_mandatory = frappe.ui.form.check_mandatory;
+    frappe.ui.form.check_mandatory = function (frm) {
+        if (frm.doc?.pos_profile === "K3LS Shop" && frappe.get_route()?.[0] === "point-of-sale"
+            && !(frm.doc.items || []).some(row => row.item_code && flt(row.qty))) {
+            frappe.msgprint({title: __("Basket"), message: frappe.k3ls_empty_basket()});
+            return false;
+        }
+        return check_mandatory.call(this, frm);
+    };
+    // Explicit loading state, separate from a successfully loaded empty result.
+    frappe.k3ls_loading = (parent, label) => {
+        const loading = $("<div class='k3ls-loading-state' role='status'></div>");
+        $("<span></span>").text(__(label || "Loading")).appendTo(loading);
+        const rows = $("<div class='k3ls-loading-rows' aria-hidden='true'></div>").appendTo(loading);
+        for (let index = 0; index < 3; index++) $("<div></div>").appendTo(rows);
+        parent.empty().append(loading).attr("aria-busy", "true");
+        return loading;
+    };
     const notifications = frappe.ui.Notifications.prototype;
     const make_notification_tab = notifications.make_tab_view;
     notifications.make_tab_view = function (item) {
@@ -66,13 +149,13 @@
         frappe.app.sidebar.prevent_scroll();
     });
     const update_dock = () => {
-        const route = frappe.get_route();
+        const route = frappe.get_route() || [];
         const entity = ["Form", "List", "Tree"].includes(route[0]) ? route[1] : route[0];
-        const shop_screen = Boolean(config[entity] || ["point-of-sale", "shop-repairs", "shop-accounts", "shop-money-owed", "shop-staff", "User", "Workspaces", "K3LS Shop", "K3LS Owner"].includes(entity));
+        const shop_screen = Boolean(config[entity] || ["point-of-sale", "shop-repairs", "shop-accounts", "shop-money-owed", "shop-staff", "permission-manager", "User", "Workspaces", "K3LS Shop", "K3LS Owner"].includes(entity));
         document.body.classList.toggle("k3ls-app-screen", shop_screen);
-        const owner_screen = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-money-owed", "shop-staff", "User", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction", "K3LS Owner"]
+        const owner_screen = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-money-owed", "shop-staff", "permission-manager", "User", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction", "K3LS Owner"]
             .includes(entity) || (entity === "Workspaces" && route[1] === "K3LS Owner")
-            || (entity === "POS Invoice" && frappe.app?.sidebar?.sidebar_title === "K3LS Owner");
+            || (["POS Invoice", "Item", "shop-repairs", "K3LS Repair"].includes(entity) && frappe.app?.sidebar?.sidebar_title === "K3LS Owner");
         document.body.classList.toggle("k3ls-owner-screen", owner_screen);
         let shortcut_selected = false;
         for (const shortcut of shortcuts) {
@@ -92,7 +175,7 @@
     Object.assign(frappe._messages, {
         "Item": "Product", "Item Name": "Product name", "Item Group": "Category",
         "K3LS Repair": "Repair", "POS Profile": "Checkout settings", "POS Invoice": "Sale",
-        "Purchase Invoice": "Purchase", "Sales Invoice": "Invoice", "Payment Entry": "Payment",
+        "Purchase Invoice": "Restock", "Purchase": "Restock", "Purchases": "Restock", "Sales Invoice": "Invoice", "Payment Entry": "Payment",
         "Mode of Payment": "Payment method", "Moniepoint MFB": "Moniepoint", "Posting Date": "Date", "Party": "Name",
         "Party Type": "Customer or supplier", "Primary Contact Details": "Contact details",
         "Receive": "Money in", "Pay": "Money out", "Internal Transfer": "Move between accounts",
@@ -150,7 +233,7 @@
 
     // ERPNext uses breadcrumbs as its title. Keep one heading, without the trail.
     const page_titles = Object.fromEntries(Object.keys(config).map(name => [name, __(name)]));
-    Object.assign(page_titles, { "Payment Entry": "Money in/out", "Payment": "Money in/out", "Supplier": "Suppliers", "Customer": "Customers", "Item": "Products", "Product": "Products", "K3LS Repair": "Repairs", "Repair": "Repairs", "Purchase Invoice": "Purchases", "Purchase": "Purchases", "POS Invoice": "Sales", "Sale": "Sales", "Sales Invoice": "Invoices", "Invoice": "Invoices", "Account": "Accounts", "Point of Sale": "POS", "POS": "POS", "Repairs": "Repairs", "New repair": "New repair", "User": "Users", "Money owed": "Money owed" });
+    Object.assign(page_titles, { "Payment Entry": "Money in/out", "Payment": "Money in/out", "Supplier": "Suppliers", "Customer": "Customers", "Item": "Products", "Product": "Products", "K3LS Repair": "Repairs", "Repair": "Repairs", "Purchase Invoice": "Restock", "Purchase": "Restock", "Restock": "Restock", "POS Invoice": "Sales", "Sale": "Sales", "Sales Invoice": "Invoices", "Invoice": "Invoices", "Account": "Accounts", "Point of Sale": "POS", "POS": "POS", "Repairs": "Repairs", "New repair": "New repair", "User": "Users", "Money owed": "Money owed" });
     const page = frappe.ui.Page.prototype;
     const set_title = page.set_title;
     page.set_title = function (title, ...args) {
@@ -191,7 +274,8 @@
                     if (control) { control.df[property] = value; changed.add(control); }
                 };
                 frm.$wrapper.addClass("k3ls-simple-form");
-                frm.$wrapper.toggleClass("k3ls-no-files", ["Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction", "POS Profile", "Account"].includes(doctype));
+                frm.$wrapper.toggleClass("k3ls-no-files", ["Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction", "POS Profile", "Account", "User"].includes(doctype));
+                frm.$wrapper.toggleClass("k3ls-user-form", doctype === "User");
                 if (doctype === "Moniepoint Settings" && !frm.$wrapper.find(".k3ls-admin-warning").length) {
                     const warning = $("<section class='k3ls-admin-warning' role='note' aria-label='Admin only'></section>");
                     $("<strong></strong>").text(__("Admin only")).appendTo(warning);
@@ -207,6 +291,46 @@
                     frm.k3ls_original_read_only = Object.fromEntries(frm.meta.fields.map(df => [df.fieldname, df.read_only || 0]));
                 }
                 const reveal = Boolean(frm.k3ls_more_fields && frappe.user.has_role("System Manager"));
+                for (const [name, label] of Object.entries(settings.labels || {})) set_property(name, "label", label);
+                if (doctype === "User") {
+                    frm.$wrapper.toggleClass("k3ls-user-advanced", reveal);
+                    for (const [name, label] of Object.entries(settings.labels)) {
+                        const tab = frm.layout.tabs.find(tab => tab.df.fieldname === name);
+                        if (tab) tab.tab_link.find(".nav-link").text(__(label));
+                        const section = frm.layout.sections_dict[name];
+                        if (section?.head) section.head.toggle(Boolean(label)).contents().filter(function () {return this.nodeType === 3;}).remove();
+                        if (section?.head && label) section.head.prepend(document.createTextNode(__(label)));
+                    }
+                    if (!reveal) {
+                        const password = frm.layout.sections_dict.change_password;
+                        password?.body.removeClass("hide");
+                        password?.head.removeClass("collapsed").hide();
+                    }
+                    for (const name of ["phone", "mobile_no"]) {
+                        const control = frm.fields_dict[name];
+                        if (control && !control.k3ls_original_parent) control.k3ls_original_parent = control.$wrapper.parent();
+                        if (control) control.$wrapper.appendTo(reveal ? control.k3ls_original_parent : frm.fields_dict.last_name.$wrapper.parent());
+                    }
+                    // Reuse core role controls. Hide unrelated choices without removing their checked values.
+                    const role_labels = frappe.k3ls_role_labels;
+                    const editor = frm.roles_editor;
+                    if (editor) {
+                        const tidy = () => {
+                            const advanced = Boolean(frm.k3ls_more_fields);
+                            editor.multicheck.$select_buttons.toggle(advanced);
+                            for (const option of editor.multicheck.options || []) {
+                                option.$checkbox?.toggle(advanced || option.value in role_labels);
+                                option.$checkbox?.find(".label-area").text(advanced ? __(option.value) : __(role_labels[option.value] || option.value));
+                            }
+                        };
+                        if (!editor.k3ls_choices) {
+                            editor.k3ls_choices = true;
+                            const make = editor.multicheck.make_checkboxes;
+                            editor.multicheck.make_checkboxes = function () {make.call(this); tidy();};
+                        }
+                        tidy();
+                    }
+                }
                 if (doctype === "POS Profile" && frm.doc.name === "K3LS Shop" && !frm.is_new()) {
                     frm.page.set_title(__("Checkout settings"));
                     const grid = frm.fields_dict.payments.$wrapper;
@@ -243,6 +367,84 @@
                     const needs_input = frm.is_new() && [df, ...children].some(field => field.reqd && !field.read_only && !frm.doc[field.fieldname] && !field.default);
                     const hidden = reveal ? frm.k3ls_original_hidden[name] : Number(!needs_input);
                     set_property(name, "hidden", hidden);
+                }
+                if (doctype === "Purchase Invoice") {
+                    frm.$wrapper.toggleClass("k3ls-purchase-form", !reveal);
+                    const has_supplier = Boolean(frm.doc.supplier);
+                    const has_products = (frm.doc.items || []).some(row => row.item_code && flt(row.qty));
+                    const progressive = !reveal && frm.is_new() && !frm.doc.is_return;
+                    frm.$wrapper.toggleClass("k3ls-restock-await-supplier", progressive && !has_supplier && !has_products);
+                    frm.$wrapper.toggleClass("k3ls-restock-await-products", progressive && !has_products);
+                    const details = frm.layout.tabs[0];
+                    if (!frm.k3ls_purchase_payments) {
+                        frm.k3ls_purchase_payments = $("<section class='form-section k3ls-purchase-payments'><h2></h2><div class='section-body'></div></section>").appendTo(details.wrapper);
+                        frm.k3ls_purchase_payments.find("h2").text(__("Payment"));
+                    }
+                    frm.k3ls_purchase_payments.toggle(!reveal && (!progressive || has_products));
+                    for (const name of ["is_paid", "mode_of_payment", "paid_amount", "due_date", "remarks"]) {
+                        const control = frm.fields_dict[name];
+                        if (!control) continue;
+                        control.k3ls_purchase_parent ||= control.$wrapper.parent();
+                        control.$wrapper.appendTo(reveal ? control.k3ls_purchase_parent : frm.k3ls_purchase_payments.find(".section-body"));
+                    }
+                    for (const name of ["outstanding_amount"]) {
+                        const control = frm.fields_dict[name];
+                        if (!control) continue;
+                        control.k3ls_purchase_parent ||= control.$wrapper.parent();
+                        control.$wrapper.appendTo(reveal ? control.k3ls_purchase_parent : frm.k3ls_purchase_payments.find(".section-body"));
+                    }
+                    if (!reveal) {
+                        set_property("is_return", "hidden", Number(!frm.doc.is_return));
+                        set_property("update_stock", "hidden", Number(Boolean(frm.doc.update_stock)));
+                        for (const name of ["mode_of_payment", "paid_amount"]) set_property(name, "hidden", Number(!frm.doc.is_paid));
+                        const fully_paid = frm.doc.is_paid && flt(frm.doc.grand_total) > 0 && flt(frm.doc.paid_amount) >= flt(frm.doc.grand_total);
+                        set_property("due_date", "hidden", Number(Boolean(fully_paid)));
+                        set_property("update_stock", "read_only", frm.is_new() ? frm.k3ls_original_read_only.update_stock : 1);
+                        for (const name of ["total_taxes_and_charges", "discount_amount", "rounding_adjustment", "rounded_total"]) {
+                            set_property(name, "hidden", Number(!flt(frm.doc[name]) || name === "rounded_total" && (frm.doc.disable_rounded_total || frm.doc.rounded_total === frm.doc.grand_total)));
+                        }
+                        if (details.df.hidden) {details.df.hidden = 0; details.refresh();}
+                    }
+                    const grid = frm.fields_dict.items.grid;
+                    grid.wrapper.find(".grid-add-row").text(__("Add product"));
+                    for (const name of ["supplier_invoice_details", "sec_warehouse"]) {
+                        const section = frm.layout.sections_dict[name];
+                        if (!section?.head) continue;
+                        section.head.contents().filter(function () {return this.nodeType === 3;}).remove();
+                        section.head.prepend(document.createTextNode(__(settings.labels[name])));
+                    }
+                    const visible = new Set(["item_code", "item_name", "qty", "rate", "amount", "serial_no", "batch_no", "serial_and_batch_bundle", "add_serial_batch_bundle"]);
+                    frm.k3ls_purchase_grid ||= Object.fromEntries(grid.docfields.map(df => [df.fieldname, {hidden: df.hidden || 0, label: df.label, in_list_view: df.in_list_view || 0}]));
+                    let grid_changed = false;
+                    for (const df of grid.docfields) {
+                        if (["Section Break", "Column Break", "Tab Break"].includes(df.fieldtype)) continue;
+                        const original = frm.k3ls_purchase_grid[df.fieldname];
+                        const hidden = reveal ? original.hidden : Number(!visible.has(df.fieldname));
+                        const label = reveal ? original.label : {item_code: "Product", item_name: "Product name", qty: "Quantity", rate: "Cost each", amount: "Total", serial_no: "Serial numbers"}[df.fieldname] || df.label;
+                        const in_list_view = reveal ? original.in_list_view : Number(["item_code", "qty", "rate", "amount"].includes(df.fieldname));
+                        for (const [property, value] of Object.entries({hidden, label, in_list_view})) {
+                            if (df[property] !== value) {grid.update_docfield_property(df.fieldname, property, value); grid_changed = true;}
+                        }
+                    }
+                    if (grid_changed) {grid.visible_columns = null; grid.refresh();}
+                    if (!reveal && details.is_active() === false) details.set_active();
+                    if (reveal) {
+                        set_property("update_stock", "read_only", frm.k3ls_original_read_only.update_stock);
+                        for (const name of ["is_return", "update_stock"]) set_property(name, "hidden", frm.k3ls_original_hidden[name]);
+                    }
+                    const payment = frm.fields_dict.mode_of_payment;
+                    if (!payment.k3ls_purchase_query_wrapped) {
+                        payment.k3ls_purchase_query_wrapped = true;
+                        payment.k3ls_purchase_query = payment.get_query;
+                        payment.get_query = (...args) => {
+                            const query = payment.k3ls_purchase_query?.(...args) || {};
+                            if (frm.k3ls_more_fields) return query;
+                            const filters = Array.isArray(query.filters)
+                                ? [...query.filters, ["Mode of Payment", "name", "in", ["Cash", "Moniepoint MFB"]]]
+                                : {...query.filters, name: ["in", ["Cash", "Moniepoint MFB"]]};
+                            return {...query, filters};
+                        };
+                    }
                 }
                 if (doctype === "Item" && !reveal) {
                     set_property("stock_uom", "hidden", frm.doc.stock_uom === "Nos" ? 1 : 0);
@@ -300,26 +502,173 @@
                 if (frm.layout.tabs.find(tab => tab.is_active() && tab.df.hidden)) {
                     frm.layout.tabs.find(tab => !tab.df.hidden && !tab.hidden)?.set_active();
                 }
-                const extra_actions = ["Remind Me", "Follow", "Unfollow", "Repeat", "Copy to Clipboard"];
+                frm.k3ls_header_actions?.forEach(({label, group, button}) => {
+                    button.toggle(reveal);
+                    if (group) {
+                        const parent = button.closest(".inner-group-button");
+                        parent.toggle(parent.find(".dropdown-menu a").toArray().some(item => item.style.display !== "none"));
+                    }
+                    const menu_label = group ? `${group} > ${label}` : label;
+                    frm.page.menu.find(".menu-item-label").filter(function () {return $(this).text().trim() === menu_label;}).closest("li").toggle(reveal);
+                });
+                frm.page.wrapper.find(".prev-doc, .next-doc").toggle(reveal);
+                const extra_actions = ["Remind Me", "Follow", "Unfollow", "Repeat", "Copy to Clipboard",
+                    "Jump to field", "Show Links", "Edit DocType", "Customize", "Customize Form"];
+                if (doctype === "User") extra_actions.push("Email", "Rename", "Duplicate");
                 frm.page.menu.find("a").each(function () {
                     const label = $(this).find(".menu-item-label").text().trim();
-                    if (extra_actions.map(label => __(label)).includes(label)) $(this).closest("li").hide();
+                    if (extra_actions.map(label => __(label)).includes(label)) $(this).closest("li").toggle(reveal);
                 });
         };
-        frappe.ui.form.on(doctype, { refresh: simplify_form });
+        frappe.ui.form.on(doctype, {setup(frm) {
+            frm.$wrapper.addClass("k3ls-simple-form");
+            if (doctype === "User") frm.$wrapper.addClass("k3ls-user-form k3ls-no-files");
+        }, refresh: simplify_form, onload_post_render: simplify_form});
+        if (doctype === "Purchase Invoice") {
+            frappe.ui.form.on(doctype, {onload: async frm => {
+                if (!frm.is_new() || !frm.doc.__run_link_triggers || frm.doc.is_return
+                    || (frm.doc.items || []).some(row => row.item_code || row.purchase_receipt || row.purchase_order)) return;
+                const defaults = frappe.boot.k3ls_purchase_defaults || {};
+                if (!frm.doc.company && defaults.company) await frm.set_value("company", defaults.company);
+                if (frm.doc.company === defaults.company && !frm.doc.set_warehouse && defaults.set_warehouse) {
+                    await frm.set_value("set_warehouse", defaults.set_warehouse);
+                }
+            }});
+            // Run after core's asynchronous defaults and calculations, not before them.
+            const trigger = frappe.ui.form.ScriptManager.prototype.trigger;
+            const events = new Set(["refresh", "supplier", "company", "credit_to", "item_code", "qty", "rate", "amount",
+                "items_add", "items_remove", "is_paid", "paid_amount", "mode_of_payment", "due_date", "grand_total",
+                "rounded_total", "total_taxes_and_charges", "discount_amount"]);
+            frappe.ui.form.ScriptManager.prototype.trigger = function (event, ...args) {
+                const result = trigger.call(this, event, ...args);
+                if (this.frm.doctype !== "Purchase Invoice" || !events.has(event)) return result;
+                return Promise.resolve(result).then(value => {simplify_form(this.frm); return value;});
+            };
+        }
     }
 
+    const suggested_actions = {
+        User: ["Set User Permissions", "View Permitted Documents", "View Doctype Permissions", "Create User Email", "Impersonate", "Reset LDAP Password", "Reset Password"],
+        Supplier: ["Accounting Ledger", "Accounts Payable", "Get Supplier Group Details", "Link with Customer", "Request for Quotation", "Supplier Quotation", "Purchase Order", "Purchase Receipt"],
+        Customer: ["Accounting Ledger", "Accounts Receivable", "Get Customer Group Details", "Link with Supplier", "Quotation", "Sales Order", "Delivery Note"],
+        Item: ["Stock Ledger", "Stock Projected Qty", "Show Variants", "Item Variant Settings", "Variant Details Report", "Single Variant", "Multiple Variants", "Variant", "Duplicate"],
+        "Purchase Invoice": ["Purchase Order", "Purchase Receipt", "Material Request", "Supplier Quotation", "Product Bundle"],
+    };
+    const add_button = frappe.ui.form.Form.prototype.add_custom_button;
+    frappe.ui.form.Form.prototype.add_custom_button = function (label, fn, group) {
+        if (!config[this.doctype] || !suggested_actions[this.doctype]?.some(value => __(value) === label)) return add_button.call(this, label, fn, group);
+        // Keep original callbacks available in More fields, without suggesting unrelated work.
+        const button = add_button.call(this, label, fn, group);
+        if (button) {
+            this.k3ls_header_actions ||= [];
+            this.k3ls_header_actions = this.k3ls_header_actions.filter(action => action.label !== label);
+            this.k3ls_header_actions.push({label, group, button});
+            button.toggle(Boolean(this.k3ls_more_fields));
+            if (group) {
+                const parent = button.closest(".inner-group-button");
+                parent.toggle(parent.find(".dropdown-menu a").toArray().some(item => item.style.display !== "none"));
+            }
+        }
+        if (this.doctype === "User" && label === __("Reset Password")) {
+            this.k3ls_password_recovery ||= $("<button type='button' class='btn btn-default'></button>")
+                .text(__("Send password reset link")).appendTo(this.layout.sections_dict.change_password.body);
+            this.k3ls_password_recovery.off("click").on("click", () => frappe.confirm(__("Send a password reset link to this user's email?"), fn));
+        }
+        return button;
+    };
+    const navigation = frappe.ui.form.Toolbar.prototype.make_navigation;
+    frappe.ui.form.Toolbar.prototype.make_navigation = function () {
+        if (!config[this.frm.doctype] || this.frm.k3ls_more_fields) return navigation.call(this);
+    };
+
     const list = frappe.views.ListView.prototype;
+    const make_new_doc = list.make_new_doc;
+    list.make_new_doc = function () {
+        if (["POS Invoice", "Sales Invoice"].includes(this.doctype)) return frappe.k3ls_new_sale();
+        return make_new_doc.call(this);
+    };
     const load_last_view = frappe.views.ListView.load_last_view;
     frappe.views.ListView.load_last_view = function () {
-        const route = frappe.get_route();
-        if (config[route[1]] && !config[route[1]].presentation_only && route.length === 2) {
-            frappe.set_route("list", frappe.router.doctype_layout || route[1], "list");
+        const route = frappe.get_route() || [];
+        if (config[route[1]] && (!config[route[1]].presentation_only || route[1] === "User") && route.length === 2) {
+            const options = {...Object.fromEntries(new URLSearchParams(location.search)), ...frappe.route_options};
+            frappe.set_route("list", frappe.router.doctype_layout || route[1], "list", options);
             return true;
         }
         return load_last_view.call(this);
     };
     const base_list = frappe.views.BaseList.prototype;
+    const setup_filters = base_list.setup_filter_area;
+    base_list.setup_filter_area = function () {
+        if (!config[this.doctype]?.search_title) return setup_filters.call(this);
+        // Keep normal filters in the Filter dialog rather than several competing header inputs.
+        const original_meta = this.meta;
+        const hide_name = this.settings.hide_name_filter;
+        this.settings.hide_name_filter = true;
+        this.meta = {...original_meta, title_field: null,
+            fields: original_meta.fields.map(df => ({...df, in_standard_filter: 0}))};
+        try {return setup_filters.call(this);}
+        finally {this.meta = original_meta; this.settings.hide_name_filter = hide_name;}
+    };
+    // Core removes its skeleton after metadata, before fetching the first records.
+    const hide_skeleton = list.hide_skeleton;
+    list.hide_skeleton = function () {
+        if (!config[this.doctype]) return hide_skeleton.call(this);
+        this.$list_skeleton?.hide();
+        this.parent.page.container.find(".layout-main").show();
+        const parent = this.page?.main || this.parent.page.container.find(".page-content");
+        this.k3ls_list_loading ||= $("<div class='k3ls-list-loading'></div>").appendTo(parent);
+        frappe.k3ls_loading(this.k3ls_list_loading, "Loading records");
+        this.page?.wrapper.addClass("k3ls-list-pending");
+    };
+    const refresh_list = list.refresh;
+    list.refresh = function (...args) {
+        if (!config[this.doctype]) return refresh_list.apply(this, args);
+        if (this.k3ls_list_request) {
+            this.k3ls_list_queued = args;
+            return this.k3ls_list_request;
+        }
+        this.k3ls_list_loading ||= $("<div class='k3ls-list-loading'></div>").appendTo(this.page.main);
+        frappe.k3ls_loading(this.k3ls_list_loading, "Loading records");
+        this.k3ls_list_loading.show();
+        this.page.wrapper.addClass("k3ls-list-pending").attr("aria-busy", "true");
+        this.k3ls_list_failed = false;
+        this.k3ls_list_request = (async () => {
+            try {
+                let next = args;
+                do {
+                    this.k3ls_list_queued = null;
+                    await Promise.resolve(refresh_list.apply(this, next));
+                    next = this.k3ls_list_queued;
+                } while (next);
+            } catch (error) {
+                this.k3ls_list_loading.empty().append($("<p role='alert'></p>").text(__("Records could not load.")));
+                $("<button type='button' class='btn btn-default'></button>").text(__("Retry"))
+                    .on("click", () => {this.last_args = null; this.refresh();}).appendTo(this.k3ls_list_loading);
+                this.k3ls_list_failed = true;
+            } finally {
+                this.k3ls_list_request = null;
+                this.freeze(false);
+                this.page.wrapper.attr("aria-busy", "false");
+                this.k3ls_list_loading.attr("aria-busy", "false");
+                if (!this.k3ls_list_failed) {this.k3ls_list_loading.hide(); this.page.wrapper.removeClass("k3ls-list-pending");}
+            }
+        })();
+        return this.k3ls_list_request;
+    };
+    const after_load = frappe.ui.form.Form.prototype.run_after_load_hook;
+    frappe.ui.form.Form.prototype.run_after_load_hook = function (...args) {
+        if (config[this.doctype]) this.$wrapper.removeClass("k3ls-form-pending").attr("aria-busy", "false");
+        return after_load.apply(this, args);
+    };
+    $(document).on("form-refresh.k3ls-loading", (event, frm) => {
+        if (config[frm.doctype]) frm.$wrapper.addClass("k3ls-form-pending").attr("aria-busy", "true");
+    });
+    const quick_fields = frappe.ui.form.QuickEntryForm.prototype.set_meta_and_mandatory_fields;
+    frappe.ui.form.QuickEntryForm.prototype.set_meta_and_mandatory_fields = function () {
+        quick_fields.call(this);
+        if (this.doctype === "User") this.docfields = this.docfields.filter(df => df.reqd || ["first_name", "last_name", "email"].includes(df.fieldname));
+    };
     const setup_view_menu = base_list.setup_view_menu;
     base_list.setup_view_menu = function () {
         if (!config[this.doctype]) return setup_view_menu.call(this);
@@ -327,6 +676,20 @@
         if (frappe.user.has_role("System Manager") && this.view_name !== "Report") {
             this.page.add_menu_item("Report", () => frappe.set_route("list", this.doctype, "report"), true);
         }
+        if (this.doctype === "User" && frappe.user.has_role("System Manager")) {
+            this.page.add_menu_item(__("Shop access"), () => frappe.set_route("permission-manager"));
+        }
+    };
+    const set_menu_items = base_list.set_menu_items;
+    base_list.set_menu_items = function () {
+        if (!config[this.doctype]) return set_menu_items.call(this);
+        // Keep refresh and report/export access; configuration belongs outside everyday lists.
+        const hidden = ["Import", "User Permissions", "Role Permissions Manager", "Customize", "Edit DocType",
+            "Customize Quick Filters", "List Settings"].map(label => __(label, null, "Button in list view menu"));
+        const items = this.menu_items;
+        this.menu_items = items?.filter(item => !hidden.includes(item.label));
+        try {return set_menu_items.call(this);}
+        finally {this.menu_items = items;}
     };
     const get_actions = list.get_actions_menu_items;
     list.get_actions_menu_items = function () {
@@ -338,6 +701,15 @@
 
     {
         const header = frappe.ui.SidebarHeader.prototype;
+        const place_brand = instance => {
+            instance.sidebar_wrapper.find(".k3ls-sidebar-brand").remove();
+            if (!["K3LS Shop", "K3LS Owner"].includes(instance.title)) return;
+            $("<div class='k3ls-sidebar-brand'><img src='/assets/moniepoint_pos/images/k3ls-loading-logo.png' alt='K3LS'></div>")
+                .insertBefore(instance.wrapper);
+        };
+        const make_header = header.make;
+        header.make = function () {make_header.call(this); place_brand(this);};
+        if (frappe.app?.sidebar?.sidebar_header) place_brand(frappe.app.sidebar.sidebar_header);
         const add_navbar_items = header.add_navbar_items;
         header.add_navbar_items = function () {
             add_navbar_items.call(this);
@@ -432,9 +804,12 @@
         };
         const resolve = sidebar.resolve_sidebar;
         const shop = ["Item", "Customer", "K3LS Repair", "shop-repairs", "POS Invoice", "Sales Invoice", "point-of-sale"];
-        const owner = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-money-owed", "shop-staff", "User", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction"];
+        const owner = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-money-owed", "shop-staff", "permission-manager", "User", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction"];
         sidebar.resolve_sidebar = function (entity, module) {
-            if (entity === "POS Invoice" && this.sidebar_title === "K3LS Owner"
+            const url_sidebar = new URLSearchParams(location.search).get("sidebar")?.replace(/^"|"$/g, "");
+            if (frappe.get_route()?.[0] === "permission-manager" && this.all_sidebar_items["k3ls owner"]) return "K3LS Owner";
+            if (["POS Invoice", "Item", "shop-repairs", "K3LS Repair"].includes(entity)
+                && (frappe.route_options?.sidebar || url_sidebar || this.sidebar_title) === "K3LS Owner"
                 && this.all_sidebar_items["k3ls owner"]) return "K3LS Owner";
             const title = shop.includes(entity) ? "K3LS Shop" : owner.includes(entity) ? "K3LS Owner" : null;
             if (title && this.all_sidebar_items[title.toLowerCase()]) return title;

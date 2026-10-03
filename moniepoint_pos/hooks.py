@@ -6,12 +6,12 @@ app_email = "developer@localhost.invalid"
 app_license = "MIT"
 required_apps = ["erpnext"]
 
-page_js = {"point-of-sale": "public/js/k3ls_pos.js"}
-app_include_js = ["/assets/moniepoint_pos/js/k3ls_shop_ui.js?v=20261003-22"]
-app_include_css = ["/assets/moniepoint_pos/css/k3ls_shop_ui.css?v=20261003-22"]
+page_js = {"point-of-sale": "public/js/k3ls_pos.js", "permission-manager": "public/js/k3ls_permissions.js"}
+app_include_js = ["/assets/moniepoint_pos/js/k3ls_shop_ui.js?v=20261003-38"]
+app_include_css = ["/assets/moniepoint_pos/css/k3ls_shop_ui.css?v=20261003-38"]
 boot_session = "moniepoint_pos.shop_ui.boot_session"
 update_website_context = "moniepoint_pos.branding.website_context"
 doctype_list_js = {doctype: "public/js/k3ls_list.js" for doctype in (
-    "Supplier", "Customer", "Item", "K3LS Repair", "Purchase Invoice", "Payment Entry", "POS Invoice", "Sales Invoice", "POS Profile", "Moniepoint Terminal", "Moniepoint Transaction"
+    "Supplier", "Customer", "Item", "K3LS Repair", "Purchase Invoice", "Payment Entry", "POS Invoice", "Sales Invoice", "POS Profile", "Moniepoint Terminal", "Moniepoint Transaction", "User"
 )}
 doc_events = {"POS Invoice": {"before_submit": "moniepoint_pos.shop_setup.validate_sale"}}

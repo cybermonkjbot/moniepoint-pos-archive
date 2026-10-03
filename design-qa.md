@@ -51,3 +51,21 @@ The wider repair/POS design pass has no matching-state, matching-viewport source
 final result: blocked
 
 Blocker: Full repair/POS visual fidelity cannot be established from the available mismatched source captures. This does not negate the directly inspected Accounts and checkout simplifications.
+
+## Additional scoped review on 3 October 2026
+
+This pass covers focused lists, sale choices, Restock progression, Owner navigation and Shop access. It does not resolve the wider fidelity gaps above.
+
+Desktop evidence at 1280 x 720 includes `products-search-before.jpg`, `products-search-final.jpg`, `customers-search-logo-desktop-final.jpg`, `users-details-before.jpg`, `users-access-final.jpg`, `sales-owner-before.jpg`, `new-sale-owner-final.jpg`, `pos-empty-basket-final.jpg`, `restock-supplier-final.jpg`, `restock-products-payment-final.jpg`, `permissions-before.jpg`, `permissions-desktop-final.jpg`, `products-owner-final.jpg` and `sales-menu-owner-final.jpg`.
+
+Phone evidence at 390 x 844 includes `new-sale-phone-final.jpg`, `restock-payment-phone-final.jpg` and `permissions-phone-final.jpg`. Temporary viewport overrides were reset after inspection. Intermediate screenshots can predate the final Restock/sidebar copy; the specifically named Restock and Sales menu captures show those removals.
+
+- One search returned the known product ID, category and active status. Clearing it retained the existing Active filter. Refresh preserved search. Customer and User lists also showed one search. Populated Restock records and invalid-date recovery were not exercised.
+- Add Sale opened the two-choice dialog from Shop and Owner lists. Product sale returned to the empty basket without setup-field errors. Repair opened intake directly. The phone chooser rendered as a bottom sheet.
+- Restock initially showed supplier and date only. Supplier selection revealed products; choosing a product with nonzero quantity revealed totals and Payment. Paid now revealed method and amount controls. Phone payment stacked without an overlapping drawer. None of these drafts was saved.
+- Owner Products opened the existing product list and stayed in the Owner view after refresh. Owner Repairs remained in the sidebar. Lower Owner links are scrollable at short desktop heights; this pass adds links rather than removing any.
+- The final Sales list menu showed Report only. Import, User Permissions, Role Permissions Manager, Customize, Edit DocType, Customize Quick Filters and List Settings were absent.
+- Shop access showed screen and role selectors, shorter permission labels and no permission-level column. More options restored technical rules. Add access opened a two-field dialog and was cancelled. The phone layout stacked the table cells. No checkbox, reset, add or remove operation was applied.
+- User Details had full-width readable fields. Roles, passwords and account values were not changed. The supplied logo was left-aligned above the workspace title.
+
+Remaining gaps include record save/submission, stock posting, payment collection, role-change behavior under restricted users, full form-load failure recovery, keyboard/text-scale coverage and full mobile theme coverage. Existing socket polling errors remain. These checks used the already-running site; no tests, lint, typechecks, builds, bundling, compilation or additional servers were run.

@@ -13,10 +13,12 @@ SECTION_ICONS = {
     "K3LS Owner": {
         "Users": "users",
         "Sales": "receipt",
+        "Products": "package",
         "Money in/out": "wallet",
+        "Repairs": "wrench",
         "Money owed": "hand-coins",
         "Suppliers": "truck",
-        "Purchases": "shopping-bag",
+        "Restock": "shopping-bag",
         "Accounts": "landmark",
         "Checkout settings": "sliders-horizontal",
         "Moniepoint settings": "key-round",
@@ -52,10 +54,12 @@ def configure():
         "K3LS Shop": [("POS", "point-of-sale"), ("Repairs", "shop-repairs" if frappe.db.exists("Page", "shop-repairs") else "K3LS Repair" if frappe.db.exists("DocType", "K3LS Repair") else "Issue"),
             ("Sales", "POS Invoice"), ("Stock", "Item"), ("Customers", "Customer")],
         "K3LS Owner": [("Sales", "POS Invoice"), ("Money in/out", "Payment Entry"), ("Money owed", "shop-money-owed" if frappe.db.exists("Page", "shop-money-owed") else "Sales Invoice"), ("Suppliers", "Supplier"),
-            ("Purchases", "Purchase Invoice"), ("Accounts", "shop-accounts" if frappe.db.exists("Page", "shop-accounts") else "Account"),
+            ("Restock", "Purchase Invoice"), ("Accounts", "shop-accounts" if frappe.db.exists("Page", "shop-accounts") else "Account"),
             ("Checkout settings", "POS Profile"), ("Moniepoint settings", "Moniepoint Settings"),
             ("Users", "User")],
     }
+    definitions["K3LS Owner"].insert(1, ("Repairs", "shop-repairs"))
+    definitions["K3LS Owner"].insert(2, ("Products", "Item"))
     snapshot = {row.name: row.hidden for row in frappe.get_all("Desktop Icon", fields=["name", "hidden"])}
     if not frappe.db.get_single_value("System Settings", "setup_complete"):
         frappe.throw("Complete the existing setup wizard first.")
@@ -66,7 +70,7 @@ def configure():
         sidebar.set("items", [{"type": "Link", "label": label,
             "link_type": "Page" if target in ("point-of-sale", "shop-accounts", "shop-repairs", "shop-money-owed") else "DocType", "link_to": target,
             "navigate_to_tab": "accounting_tab" if target == "POS Profile" else None,
-            "route_options": frappe.as_json({"sidebar": title}) if target == "POS Invoice" else None}
+            "route_options": frappe.as_json({"sidebar": title}) if target in ("POS Invoice", "Item", "shop-repairs") else None}
             for label, target in entries])
         sidebar.save()
         if not frappe.db.exists("Desktop Icon", title):
@@ -95,6 +99,8 @@ def simplify_links():
                 item.link_to = "User"
             elif item.link_to == "Payment Entry":
                 item.label = "Money in/out"
+            elif item.link_to == "Purchase Invoice":
+                item.label = "Restock"
             elif item.link_to == "POS Profile":
                 item.label = "Checkout settings"
                 item.navigate_to_tab = "accounting_tab"
@@ -114,3 +120,46 @@ def simplify_links():
     frappe.clear_cache()
     frappe.db.commit()
     return {"sales": "POS Invoice", "money": "Payment Entry", "till_tab": "accounting_tab"}
+
+
+def add_owner_repairs():
+    """Add Repairs and rename Purchases, preserving routes and role permissions."""
+    frappe.only_for("System Manager")
+    sidebar = frappe.get_doc("Workspace Sidebar", "K3LS Owner")
+    existing = next((item for item in sidebar.items if item.link_to == "shop-repairs"), None)
+    if existing:
+        existing.label = "Repairs"
+        existing.icon = "wrench"
+        existing.route_options = frappe.as_json({"sidebar": "K3LS Owner"})
+    else:
+        position = next((index + 1 for index, item in enumerate(sidebar.items) if item.link_to == "POS Invoice"), 0)
+        sidebar.append("items", {"type": "Link", "label": "Repairs", "link_type": "Page", "link_to": "shop-repairs",
+            "icon": "wrench", "route_options": frappe.as_json({"sidebar": "K3LS Owner"})}, position=position)
+    for index, item in enumerate(sidebar.items, 1):
+        item.idx = index
+        if item.link_to == "Purchase Invoice":
+            item.label = "Restock"
+    sidebar.save()
+    frappe.clear_cache()
+    frappe.db.commit()
+    return {"sidebar": sidebar.name, "repairs": "shop-repairs", "restock": "Purchase Invoice"}
+
+
+def add_owner_products():
+    """Expose the existing product manager without changing product permissions."""
+    frappe.only_for("System Manager")
+    sidebar = frappe.get_doc("Workspace Sidebar", "K3LS Owner")
+    existing = next((item for item in sidebar.items if item.link_to == "Item"), None)
+    if not existing:
+        position = next((index + 1 for index, item in enumerate(sidebar.items)
+            if item.link_to == "shop-repairs"), 1)
+        existing = sidebar.append("items", {"type": "Link", "link_type": "DocType", "link_to": "Item"}, position=position)
+    existing.label = "Products"
+    existing.icon = "package"
+    existing.route_options = frappe.as_json({"sidebar": "K3LS Owner"})
+    for index, item in enumerate(sidebar.items, 1):
+        item.idx = index
+    sidebar.save()
+    frappe.clear_cache()
+    frappe.db.commit()
+    return {"sidebar": sidebar.name, "products": "Item"}
