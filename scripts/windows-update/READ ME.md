@@ -6,7 +6,13 @@ are needed.
 
 The installer finds `K3LS-transfer-20261003-174403` in Documents, Desktop or
 Downloads, including an extra extraction folder level. If the backup is elsewhere,
-select its folder when asked. The original transfer and its manifest remain intact.
+select its folder when asked.
+
+The installer checks the database, uploaded files and source archives first.
+If an earlier update replaced files in the original transfer, this version saves
+copies in `installation-logs` and restores the original installer files.
+The backup manifest and shop data are not changed. Corrected scripts run from
+their own folder so the archive fix remains active.
 
 This update corrects the uploaded-file archive check for verified Mac metadata.
 It uses the same Linux environment as the original transfer. The database restore

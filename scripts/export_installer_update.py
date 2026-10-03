@@ -31,7 +31,7 @@ def main():
     scripts = Path(__file__).resolve().parent
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    name = "K3LS-Installer-Update-20261003"
+    name = "K3LS-Installer-Fix-20261003-v2"
     destination = output / name
     archive_path = output / f"{name}.zip"
     if destination.exists() or archive_path.exists():
@@ -41,8 +41,18 @@ def main():
     for source in (scripts / "windows-update").iterdir():
         if source.is_file():
             shutil.copy2(source, destination / source.name)
+    # Keep exact original installer files so an update extracted over the
+    # transfer can repair them without changing its manifest or shop data.
+    for entry in manifest["files"]:
+        if entry["path"].startswith("snapshot/"):
+            continue
+        if entry["path"] not in ("Install K3LS.vbs", "READ ME.md", "verify-transfer.ps1") and not entry["path"].startswith("windows/"):
+            raise SystemExit(f"Unexpected installer path: {entry['path']}")
+        target = destination / "original-installer" / entry["path"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(original / entry["path"], target)
     update_manifest = {
-        "format": "k3ls-installer-update-v1",
+        "format": "k3ls-installer-update-v2",
         "backup_folder": original.name,
         "backup_manifest_sha256": expected_manifest,
         "backup_verifier_sha256": expected_verifier,
