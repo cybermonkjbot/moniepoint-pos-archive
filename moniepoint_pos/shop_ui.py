@@ -1,5 +1,6 @@
 """Small-shop presentation. No records, ledger entries or permissions are removed."""
 import frappe
+from frappe import _
 from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 from frappe.utils.file_manager import save_file
 
@@ -177,6 +178,24 @@ def boot_session(bootinfo):
         bootinfo.k3ls_purchase_defaults = {"company": profiles[0].company, "set_warehouse": profiles[0].warehouse}
     # Keep all record permissions unchanged. Only filter navigation presented to this site.
     bootinfo.workspace_sidebar_item = {key: value for key, value in bootinfo.workspace_sidebar_item.items() if key in ("k3ls shop", "k3ls owner", "my workspaces")}
+    owner = bootinfo.workspace_sidebar_item.get("k3ls owner")
+    if owner:
+        # Both links are read-only summaries. Keep one existing, permission-
+        # filtered route rather than presenting them as separate setup screens.
+        items = []
+        overview_added = False
+        for item in owner["items"]:
+            if item.get("link_type") == "Page" and item.get("link_to") in ("shop-accounts", "shop-profit"):
+                if overview_added:
+                    continue
+                item = dict(item, label=_("Overview"), link_to="shop-accounts", icon="chart-line")
+                overview_added = True
+            items.append(item)
+        owner["items"] = items
+    for name in ("shop-accounts", "shop-profit"):
+        page = bootinfo.get("page_info", {}).get(name)
+        if page:
+            page.update({"title": _("Overview"), "route": "shop-accounts"})
 
 
 def configure():

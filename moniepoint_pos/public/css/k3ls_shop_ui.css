@@ -273,6 +273,20 @@ body.k3ls-shop {
     overflow-x: auto;
 }
 
+.k3ls-overview {max-width: 1060px; margin: 0 auto; padding: 28px 24px; display: grid; gap: 32px;}
+.k3ls-overview-section {min-width: 0;}
+.k3ls-overview-section h2 {margin: 0; font-size: 20px; line-height: 1.4; color: var(--k3ls-ink);}
+.k3ls-overview-heading {display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px;}
+.k3ls-overview .k3ls-price-card {background: var(--k3ls-surface); border-color: var(--k3ls-line);}
+.k3ls-overview .k3ls-price-card span {color: var(--k3ls-muted);}
+.k3ls-overview .k3ls-price-card strong {color: var(--k3ls-ink);}
+.k3ls-overview .k3ls-account-summary {cursor: default;}
+.k3ls-overview .k3ls-account-summary:hover {background: var(--card-bg);}
+@media (max-width: 768px) {
+    .k3ls-overview {padding: 20px 16px; gap: 24px;}
+    .k3ls-overview-heading .btn {min-height: 44px;}
+}
+
 /* Product sales and repair work share shop controls, not a catalogue. */
 .k3ls-shop .k3ls-pos-app {
     grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
