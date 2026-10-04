@@ -1,0 +1,30 @@
+{% extends "frappe/www/login.html" %}
+
+{% block head_include %}
+{{ super() }}
+{% if k3ls_login %}
+<link rel="stylesheet" href="/assets/moniepoint_pos/css/k3ls_login.css?v=20261004-1">
+{% endif %}
+{% endblock %}
+
+{% block page_content %}
+{% if k3ls_login %}
+<div class="k3ls-signin-shell">
+    <div class="k3ls-signin-brand">
+        <img src="{{ logo | e }}" alt="{{ _('Shop logo') | e }}" width="447" height="93">
+    </div>
+    <div class="k3ls-signin-forms">
+        {{ super() }}
+    </div>
+</div>
+{% else %}
+{{ super() }}
+{% endif %}
+{% endblock %}
+
+{% block script %}
+{{ super() }}
+{% if k3ls_login %}
+<script src="/assets/moniepoint_pos/js/k3ls_login.js?v=20261004-1"></script>
+{% endif %}
+{% endblock %}
