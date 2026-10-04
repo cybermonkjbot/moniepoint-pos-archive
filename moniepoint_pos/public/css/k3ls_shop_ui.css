@@ -943,8 +943,15 @@ body.k3ls-shop.k3ls-app-screen.k3ls-owner-screen {
 .k3ls-owner-screen .sidebar-notification .icon {--icon-stroke: currentColor;}
 .k3ls-owner-screen .sidebar-user-button .avatar-frame {background: var(--k3ls-accent-soft) !important; color: var(--k3ls-ink) !important;}
 .k3ls-owner-screen .k3ls-moniepoint-wordmark {background: #fff; border-radius: 12px; padding: 6px 10px; width: 196px; height: 56px;}
-.k3ls-owner-screen .dropdown-menu {background: var(--k3ls-surface); color: var(--k3ls-ink); border-color: var(--k3ls-line);}
+.k3ls-owner-screen .dropdown-menu,
+.k3ls-owner-screen .frappe-menu {background: var(--k3ls-surface); color: var(--k3ls-ink); border-color: var(--k3ls-line);}
 .k3ls-owner-screen .dropdown-item {color: var(--k3ls-ink);}
+.k3ls-owner-screen .frappe-menu .dropdown-menu-item > a,
+.k3ls-owner-screen .frappe-menu .menu-item-title {color: var(--k3ls-ink);}
+.k3ls-owner-screen .frappe-menu .menu-item-shortcut {color: var(--k3ls-muted);}
+.k3ls-owner-screen .frappe-menu .frappe-menu-item-icon {color: var(--k3ls-ink);}
+.k3ls-owner-screen .frappe-menu .dropdown-menu-item:has(> a):is(:hover, :focus-within) {background: var(--k3ls-soft);}
+.k3ls-owner-screen .frappe-menu .dropdown-divider {border-color: var(--k3ls-line);}
 .k3ls-owner-screen .form-grid .grid-heading-row,
 .k3ls-owner-screen .form-grid .grid-heading-row .grid-row {background: var(--k3ls-soft); color: var(--k3ls-ink);}
 .k3ls-owner-screen .form-grid {border-color: var(--k3ls-line);}

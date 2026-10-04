@@ -10,6 +10,8 @@ Accounts and Profit are now together in `Overview` on the owner's sidebar. Open 
 
 `Checkout settings` is no longer in the sidebar. POS still uses the saved checkout configuration and payment methods.
 
+Owner menus now use the dark-blue background with light text, including `Password and recovery`.
+
 It uses the installed WSL environment, needs no downloads and does not reinstall ERPNext. Sales, passwords, accounts and uploads remain in place. It changes login/security settings and assigns usernames to accounts that need them. Existing email reset links are invalidated.
 
 After updating, open the account menu and choose `Password and recovery`. Choose `New recovery codes` and save the list. Owners can do the same for staff under `Users` > the person > `Password`. New codes replace the previous unused set. Each code works for that user only and can be used once.
