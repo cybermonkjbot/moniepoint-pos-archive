@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 
 BACKUP_ID = '519533ad061c79bde49e2782f63f564952955574aafe832c095d4d93cfb42d30'
-RELEASE = 'K3LS-Login-Update-20261004-v1'
+RELEASE = 'K3LS-Account-Update-20261004-v3'
 APP_FILES = (
     'moniepoint_pos/www/__init__.py',
     'moniepoint_pos/www/login.py',
@@ -18,6 +18,19 @@ APP_FILES = (
     'moniepoint_pos/public/css/k3ls_login.css',
     'moniepoint_pos/public/js/k3ls_login.js',
     'moniepoint_pos/public/images/k3ls-loading-logo.png',
+    'moniepoint_pos/hooks.py',
+    'moniepoint_pos/security.py',
+    'moniepoint_pos/user_security.py',
+    'moniepoint_pos/shop_ui.py',
+    'moniepoint_pos/list_search.py',
+    'moniepoint_pos/public/js/k3ls_security.js',
+    'moniepoint_pos/public/js/k3ls_shop_ui.js',
+    'moniepoint_pos/public/js/k3ls_list.js',
+    'moniepoint_pos/www/update-password.html',
+    'moniepoint_pos/www/update_password.py',
+    'moniepoint_pos/moniepoint_pos/doctype/k3ls_recovery_code/__init__.py',
+    'moniepoint_pos/moniepoint_pos/doctype/k3ls_recovery_code/k3ls_recovery_code.py',
+    'moniepoint_pos/moniepoint_pos/doctype/k3ls_recovery_code/k3ls_recovery_code.json',
 )
 
 
@@ -80,12 +93,18 @@ def main():
         target = destination / 'payload' / path
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
-        changes.append({'path': path, 'before_sha256': before[path], 'sha256': digest(target)})
+        allowed_before = [before[path]]
+        for previous_release in ('K3LS-Login-Update-20261004-v1', 'K3LS-Account-Update-20261004-v2'):
+            previous = output / previous_release / 'payload' / path
+            if previous.is_file() and digest(previous) not in allowed_before:
+                allowed_before.append(digest(previous))
+        changes.append({'path': path, 'before_sha256': before[path], 'allowed_before_sha256': allowed_before, 'sha256': digest(target)})
     manifest = {
         'format': 'k3ls-app-update-v1',
         'release': RELEASE,
         'backup_manifest_sha256': BACKUP_ID,
         'app_versions': versions,
+        'configure_security': True,
         'changes': changes,
         'files': [
             {'path': path.relative_to(destination).as_posix(), 'bytes': path.stat().st_size, 'sha256': digest(path)}

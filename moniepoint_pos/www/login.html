@@ -3,7 +3,7 @@
 {% block head_include %}
 {{ super() }}
 {% if k3ls_login %}
-<link rel="stylesheet" href="/assets/moniepoint_pos/css/k3ls_login.css?v=20261004-1">
+<link rel="stylesheet" href="/assets/moniepoint_pos/css/k3ls_login.css?v=20261004-2">
 {% endif %}
 {% endblock %}
 
@@ -14,7 +14,48 @@
         <img src="{{ logo | e }}" alt="{{ _('Shop logo') | e }}" width="447" height="93">
     </div>
     <div class="k3ls-signin-forms">
-        {{ super() }}
+        <noscript><p>{{ _("Enable JavaScript to sign in.") }}</p></noscript>
+        <section class="for-login">
+            <div class="login-content page-card">
+                <div class="page-card-head"><h4>{{ _("Sign in") }}</h4></div>
+                <form class="form-signin form-login" novalidate>
+                    <div class="page-card-body">
+                        <div class="login-error-banner" role="alert"><span></span></div>
+                        <div class="form-group">
+                            <label class="form-label" for="login_email">{{ _("Username") }}</label>
+                            <input id="login_email" name="username" type="text" class="form-control" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="{{ _('Username') | e }}" required autofocus>
+                            <p class="field-error"></p>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="login_password">{{ _("Password") }}</label>
+                            <div class="password-field">
+                                <input id="login_password" type="password" class="form-control" autocomplete="current-password" required>
+                                <button type="button" toggle="#login_password" class="toggle-password" aria-label="{{ _('Show password') | e }}" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><use href="#es-line-preview"></use></svg></button>
+                            </div>
+                            <p class="field-error"></p>
+                            <p class="forgot-password-message"><a href="#forgot">{{ _("Forgot password?") }}</a></p>
+                        </div>
+                    </div>
+                    <div class="page-card-actions"><button type="submit" class="btn btn-primary btn-block btn-login">{{ _("Sign in") }}</button></div>
+                </form>
+            </div>
+        </section>
+        <section class="for-forgot">
+            <div class="login-content page-card">
+                <div class="page-card-head"><h4>{{ _("Reset password") }}</h4></div>
+                <form class="form-signin k3ls-form-recovery" novalidate>
+                    <div class="page-card-body">
+                        <div class="login-error-banner" role="alert"><span></span></div>
+                        <div class="form-group"><label class="form-label" for="recovery_username">{{ _("Username") }}</label><input id="recovery_username" class="form-control" autocomplete="username" autocapitalize="none" spellcheck="false" required><p class="field-error"></p></div>
+                        <div class="form-group"><label class="form-label" for="recovery_code">{{ _("Recovery code") }}</label><input id="recovery_code" class="form-control" autocomplete="off" autocapitalize="characters" spellcheck="false" required><p class="field-error"></p></div>
+                        <div class="form-group"><label class="form-label" for="recovery_password">{{ _("New password") }}</label><input id="recovery_password" type="password" class="form-control" autocomplete="new-password" minlength="10" maxlength="72" required><p class="field-error"></p></div>
+                        <div class="form-group"><label class="form-label" for="recovery_confirm">{{ _("Repeat password") }}</label><input id="recovery_confirm" type="password" class="form-control" autocomplete="new-password" required><p class="field-error"></p></div>
+                    </div>
+                    <div class="page-card-actions"><button type="submit" class="btn btn-primary btn-block k3ls-recover">{{ _("Reset password") }}</button></div>
+                </form>
+                <p class="sign-up-message"><a href="#login">{{ _("Back to sign in") }}</a></p>
+            </div>
+        </section>
     </div>
 </div>
 {% else %}
@@ -25,6 +66,6 @@
 {% block script %}
 {{ super() }}
 {% if k3ls_login %}
-<script src="/assets/moniepoint_pos/js/k3ls_login.js?v=20261004-1"></script>
+<script src="/assets/moniepoint_pos/js/k3ls_login.js?v=20261004-2"></script>
 {% endif %}
 {% endblock %}

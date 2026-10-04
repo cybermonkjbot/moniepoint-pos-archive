@@ -16,7 +16,11 @@ def get_context(context):
         context.title = _("Sign in") + " | K3LS"
         context.body_class = (context.get("body_class") or "") + " k3ls-login-page"
         context.logo = "/assets/moniepoint_pos/images/k3ls-loading-logo.png"
-        if context.login_label == _("Email"):
-            context.login_label = _("Email or username")
-        context.login_name_placeholder = context.login_label
+        context.login_label = _("Username")
+        context.login_name_placeholder = _("Username")
+        context.disable_signup = 1
+        context.disable_user_pass_login = 0
+        context.social_login = False
+        context.login_with_email_link = False
+        context.ldap_settings = None
     return context

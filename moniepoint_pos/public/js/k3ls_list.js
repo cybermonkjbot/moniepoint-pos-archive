@@ -14,13 +14,13 @@
     const users = frappe.listview_settings.User;
     if (users && !users.k3ls_user_list) {
         users.k3ls_user_list = true;
-        users.add_fields = [...new Set([...(users.add_fields || []), "email"])];
+        users.add_fields = [...new Set([...(users.add_fields || []).filter(field => field !== "email"), "username"])];
         const load_users = users.onload;
         users.onload = function (view) {
             load_users?.call(this, view);
-            view.columns = view.columns.filter(column => column.type !== "Field" || column.df.fieldname === "email");
-            if (!view.columns.some(column => column.df?.fieldname === "email")) {
-                view.columns.push({type: "Field", df: frappe.meta.get_docfield("User", "email")});
+            view.columns = view.columns.filter(column => column.type !== "Field" || column.df.fieldname === "username");
+            if (!view.columns.some(column => column.df?.fieldname === "username")) {
+                view.columns.push({type: "Field", df: {...frappe.meta.get_docfield("User", "username"), label: __("Username")}});
             }
             view.render_header(true);
         };

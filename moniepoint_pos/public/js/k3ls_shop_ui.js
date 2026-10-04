@@ -83,6 +83,7 @@
     };
     const new_doc = frappe.new_doc;
     frappe.new_doc = function (doctype, opts, init_callback) {
+        if (doctype === "User" && frappe.k3ls_new_user) return frappe.k3ls_new_user();
         // Mapped, prefilled and callback-initialised documents keep their values and core path.
         if (["POS Invoice", "Sales Invoice"].includes(doctype) && !init_callback
             && !Object.keys(opts || {}).some(key => key !== "sidebar")) {
@@ -400,7 +401,8 @@
                         }
                     }
                     const needs_input = frm.is_new() && [df, ...children].some(field => field.reqd && !field.read_only && !frm.doc[field.fieldname] && !field.default);
-                    const hidden = reveal ? frm.k3ls_original_hidden[name] : Number(!needs_input);
+                    const account_secret_field = doctype === "User" && ["email", "new_password", "logout_all_sessions", "send_welcome_email"].includes(name);
+                    const hidden = account_secret_field ? 1 : reveal ? frm.k3ls_original_hidden[name] : Number(!needs_input);
                     set_property(name, "hidden", hidden);
                 }
                 if (doctype === "Purchase Invoice") {
@@ -593,6 +595,7 @@
     };
     const add_button = frappe.ui.form.Form.prototype.add_custom_button;
     frappe.ui.form.Form.prototype.add_custom_button = function (label, fn, group) {
+        if (this.doctype === "User" && label === __("Reset Password")) return;
         if (!config[this.doctype] || !suggested_actions[this.doctype]?.some(value => __(value) === label)) return add_button.call(this, label, fn, group);
         // Keep original callbacks available in More fields, without suggesting unrelated work.
         const button = add_button.call(this, label, fn, group);
@@ -606,11 +609,6 @@
                 parent.toggle(parent.find(".dropdown-menu a").toArray().some(item => item.style.display !== "none"));
             }
         }
-        if (this.doctype === "User" && label === __("Reset Password")) {
-            this.k3ls_password_recovery ||= $("<button type='button' class='btn btn-default'></button>")
-                .text(__("Send password reset link")).appendTo(this.layout.sections_dict.change_password.body);
-            this.k3ls_password_recovery.off("click").on("click", () => frappe.confirm(__("Send a password reset link to this user's email?"), fn));
-        }
         return button;
     };
     const navigation = frappe.ui.form.Toolbar.prototype.make_navigation;
@@ -621,6 +619,7 @@
     const list = frappe.views.ListView.prototype;
     const make_new_doc = list.make_new_doc;
     list.make_new_doc = function () {
+        if (this.doctype === "User" && frappe.k3ls_new_user) return frappe.k3ls_new_user();
         if (["POS Invoice", "Sales Invoice"].includes(this.doctype)) return frappe.k3ls_new_sale();
         return make_new_doc.call(this);
     };
@@ -706,7 +705,7 @@
     const quick_fields = frappe.ui.form.QuickEntryForm.prototype.set_meta_and_mandatory_fields;
     frappe.ui.form.QuickEntryForm.prototype.set_meta_and_mandatory_fields = function () {
         quick_fields.call(this);
-        if (this.doctype === "User") this.docfields = this.docfields.filter(df => df.reqd || ["first_name", "last_name", "email"].includes(df.fieldname));
+        if (this.doctype === "User") this.docfields = this.docfields.filter(df => df.fieldname !== "email" && (df.reqd || ["first_name", "last_name", "username"].includes(df.fieldname)));
     };
     const setup_view_menu = base_list.setup_view_menu;
     base_list.setup_view_menu = function () {
@@ -756,6 +755,8 @@
             const hidden = ["website", "edit sidebar", "display", "session defaults", "help"];
             this.dropdown_items = this.dropdown_items.filter(item => !hidden.includes((item.label || "").toLowerCase()) && !["website", "edit-sidebar", "display", "help"].includes(item.name));
             this.dropdown_items = this.dropdown_items.filter((item, index, items) => !item.is_divider || (index > 0 && index < items.length - 1 && !items[index - 1].is_divider));
+            this.dropdown_items.push({name: "password-recovery", label: __("Password and recovery"), icon: "lock",
+                onClick: () => frappe.k3ls_account_security?.()});
         };
         const sidebar = frappe.ui.Sidebar.prototype;
         const link_item = frappe.ui.sidebar_item.TypeLink.prototype;
@@ -782,6 +783,7 @@
             root.find(".sidebar-notification").appendTo(account_tools);
             root.find(".dropdown-notifications").appendTo(account_tools);
             root.find(".sidebar-user-button").closest(".dropdown-navbar-user").appendTo(account_tools);
+            account_tools.find(".avatar-name-email .text-secondary").text(frappe.boot.k3ls_username || "");
             const trigger = account_tools.find(".sidebar-notification .item-anchor");
             trigger.attr({role: "button", tabindex: "0", "aria-label": __("Notifications"), "aria-expanded": "false"});
             trigger.off("keydown.k3ls-notifications").on("keydown.k3ls-notifications", event => {

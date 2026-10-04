@@ -26,7 +26,7 @@ LISTS = {
     "Sales Invoice": {"title": "invoices", "text": ["name", "customer", "customer_name", "contact_mobile"], "date": "posting_date", "status": "status"},
     "Payment Entry": {"title": "payments", "text": ["name", "party", "party_name", "reference_no", "mode_of_payment"], "date": "posting_date", "status": "status", "select": ["payment_type"]},
     "POS Profile": {"title": "checkout settings", "text": ["name", "warehouse"], "check": "disabled", "invert": True},
-    "User": {"title": "users", "text": ["name", "full_name", "first_name", "last_name", "email", "phone", "mobile_no"], "check": "enabled"},
+    "User": {"title": "users", "text": ["username", "full_name", "first_name", "last_name", "phone", "mobile_no"], "check": "enabled"},
     "Moniepoint Terminal": {"title": "terminals", "text": ["name", "terminal_serial", "pos_profile"], "check": "enabled"},
     "Moniepoint Transaction": {"title": "payment requests", "text": ["name", "merchant_reference", "invoice", "terminal"], "date": "creation", "status": "state"},
 }

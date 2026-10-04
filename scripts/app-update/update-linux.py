@@ -1,4 +1,4 @@
-"""Apply a checked, code-only patch to the existing K3LS Windows installation."""
+"""Update app code and account-security settings without restoring shop data."""
 
 import fcntl
 import hashlib
@@ -59,6 +59,18 @@ def clear_cache():
         '/opt/k3ls/bin/bench', '--site', SITE, 'clear-cache', cwd=BENCH)
 
 
+def security_command(method, *arguments, capture=False):
+    args = ['/usr/sbin/runuser', '-u', 'k3ls', '--', '/usr/bin/env',
+        'PATH=/opt/k3ls/bin:/opt/k3ls/runtime/node/bin:/usr/bin:/bin',
+        '/opt/k3ls/bin/bench', '--site', SITE, 'execute', 'moniepoint_pos.security.' + method]
+    if arguments:
+        args += ['--args', repr(list(arguments))]
+    if capture:
+        completed = subprocess.run(args, cwd=BENCH, check=True, capture_output=True, text=True)
+        return json.loads(completed.stdout.strip())
+    run(*args, cwd=BENCH)
+
+
 def request(path):
     req = Request('http://127.0.0.1:8000' + path, headers={'Host': SITE, 'Accept-Encoding': 'identity'})
     with urlopen(req, timeout=5) as response:
@@ -77,6 +89,8 @@ def health(manifest=None):
             if manifest:
                 if b'k3ls-signin-shell' not in page:
                     raise RuntimeError('The new login page did not load.')
+                if manifest.get('configure_security') and b'id="recovery_code"' not in page:
+                    raise RuntimeError('Recovery-code login did not load.')
                 for entry in manifest['changes']:
                     prefix = 'moniepoint_pos/public/'
                     if entry['path'].startswith(prefix):
@@ -124,7 +138,7 @@ def apply(package, manifest_hash):
     release = manifest['release']
     if not re.fullmatch(r'[A-Za-z0-9-]{1,80}', release):
         raise RuntimeError('Invalid update name.')
-    # This patch changes no schema or dependency and never runs migrate/build.
+    # Import only the recovery table. No full migration, dependency install or build.
     if set(manifest['app_versions']) != {'frappe', 'erpnext', 'moniepoint_pos'}:
         raise RuntimeError('The update app versions are incomplete.')
     for app, version in manifest['app_versions'].items():
@@ -145,8 +159,8 @@ def apply(package, manifest_hash):
     seen = set()
     for entry in manifest['changes']:
         value = entry['path']
-        if value in seen or not value.startswith(('moniepoint_pos/www/', 'moniepoint_pos/public/')):
-            raise RuntimeError('This updater only accepts login-page and public-asset changes.')
+        if value in seen or not value.startswith('moniepoint_pos/') or value.endswith(('.sql', '.sql.gz')):
+            raise RuntimeError('Only app source files can be updated.')
         seen.add(value)
         target = inside(APP, value)
         source = inside(package, 'payload/' + value)
@@ -156,7 +170,7 @@ def apply(package, manifest_hash):
         if target.exists() and not target.is_file():
             raise RuntimeError('App file path is a folder: ' + value)
         current = digest(target) if target.exists() else None
-        if current != entry['sha256'] and current != entry['before_sha256']:
+        if current != entry['sha256'] and current not in entry.get('allowed_before_sha256', [entry['before_sha256']]):
             raise RuntimeError('App file has a different local change: ' + value)
         changes.append((entry, source, target, current))
     if not changes:
@@ -164,6 +178,9 @@ def apply(package, manifest_hash):
     # Serialize updates and keep rollback code outside the site's data folders.
     saved_root = ROOT / 'updates'
     saved_root.mkdir(mode=0o700, exist_ok=True)
+    # Only the shop service user and root can traverse saved update folders.
+    os.chown(saved_root, 0, owner.pw_gid)
+    os.chmod(saved_root, 0o750)
     with (saved_root / '.lock').open('a') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -176,7 +193,11 @@ def apply(package, manifest_hash):
                 raise RuntimeError('App code changed during preflight.')
         pending = [change for change in changes if change[3] != change[0]['sha256']]
         if not pending:
-            run('/usr/bin/systemctl', 'start', 'k3ls-web')
+            if manifest.get('configure_security'):
+                security_command('configure')
+            clear_cache()
+            run('/usr/bin/systemctl', 'start', 'k3ls-web', 'k3ls-scheduler')
+            run('/usr/bin/systemctl', 'restart', '--no-block', 'k3ls-worker')
             health(manifest)
             print('This update is already installed. The login server check passed.', flush=True)
             return
@@ -204,10 +225,12 @@ def apply(package, manifest_hash):
                     raise RuntimeError('App code changed while saving the rollback copy.')
         shutil.copy2(manifest_path, saved / 'update-manifest.json')
         print('Old app files saved at ' + str(saved), flush=True)
-        print('Applying the login update. The web server will pause briefly...', flush=True)
+        print('Applying the account update. The web server will pause briefly...', flush=True)
         applied = []
+        configured = False
+        security_snapshot = saved / 'security-before.json'
         try:
-            run('/usr/bin/systemctl', 'stop', 'k3ls-web')
+            run('/usr/bin/systemctl', 'stop', 'k3ls-web', 'k3ls-scheduler')
             for entry, source, target, current in pending:
                 applied.append((entry, target, current))
                 replace_file(staged / entry['path'], target, owner)
@@ -217,31 +240,53 @@ def apply(package, manifest_hash):
                     os.chmod(parent, 0o755)
                     os.chown(parent, owner.pw_uid, owner.pw_gid)
                     parent = parent.parent
+            if manifest.get('configure_security'):
+                # Run the new console code before switching settings. Save only
+                # the settings/usernames changed by this update, no passwords.
+                data = security_command('security_configuration_snapshot', capture=True)
+                security_snapshot.write_text(json.dumps(data, indent=2) + '\n')
+                security_snapshot.chmod(0o600)
+                # The bench command runs as k3ls and needs a readable snapshot
+                # for rollback. The directory remains private to k3ls/root.
+                os.chown(saved, owner.pw_uid, owner.pw_gid)
+                os.chown(security_snapshot, owner.pw_uid, owner.pw_gid)
+                configured = True
+                security_command('configure')
             clear_cache()
-            run('/usr/bin/systemctl', 'start', 'k3ls-web')
+            run('/usr/bin/systemctl', 'start', 'k3ls-web', 'k3ls-scheduler')
+            run('/usr/bin/systemctl', 'restart', '--no-block', 'k3ls-worker')
             health(manifest)
             (saved / 'complete.json').write_text(json.dumps({'release': release, 'manifest_sha256': manifest_hash}, indent=2) + '\n')
-            print('Login update complete. The server and logo checks passed.', flush=True)
-        except BaseException:
+            print('Account update complete. The login and asset checks passed.', flush=True)
+        except BaseException as update_error:
             print('Update failed. Restoring the previous app files...', flush=True)
-            run('/usr/bin/systemctl', 'stop', 'k3ls-web')
+            rollback_errors = []
+            def recover(label, action):
+                try:
+                    action()
+                except BaseException as error:
+                    rollback_errors.append(label + ': ' + str(error))
+            recover('Pause server', lambda: run('/usr/bin/systemctl', 'stop', 'k3ls-web', 'k3ls-scheduler'))
+            if configured:
+                recover('Restore settings', lambda: security_command('restore_security_configuration', str(security_snapshot)))
             for entry, target, current in reversed(applied):
                 if current is None:
                     if target.is_file():
-                        target.unlink()
+                        recover('Remove new file ' + entry['path'], target.unlink)
                 else:
-                    replace_file(originals / entry['path'], target, owner)
+                    recover('Restore file ' + entry['path'], lambda: replace_file(originals / entry['path'], target, owner))
             for folder in sorted(created_folders, key=lambda path: len(path.parts), reverse=True):
                 # Only remove empty folders created by this patch. Preserve any
                 # caches or files produced by another process during the update.
                 if folder.is_dir() and not any(folder.iterdir()):
-                    folder.rmdir()
-            # Restore availability even if a cache-clear command fails.
-            try:
-                clear_cache()
-            finally:
-                run('/usr/bin/systemctl', 'start', 'k3ls-web')
-            health()
+                    recover('Remove empty update folder', folder.rmdir)
+            # A failed setting or file restore must not prevent service recovery.
+            recover('Clear cache', clear_cache)
+            recover('Start server', lambda: run('/usr/bin/systemctl', 'start', 'k3ls-web', 'k3ls-scheduler'))
+            recover('Restart worker', lambda: run('/usr/bin/systemctl', 'restart', '--no-block', 'k3ls-worker'))
+            recover('Server check', health)
+            if rollback_errors:
+                raise RuntimeError('Update failed: ' + str(update_error) + '. Recovery needs attention: ' + '; '.join(rollback_errors)) from update_error
             print('Previous app code restored. Shop records were not replaced.', flush=True)
             raise
 

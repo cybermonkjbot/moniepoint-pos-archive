@@ -1,0 +1,18 @@
+{
+  "doctype": "DocType",
+  "name": "K3LS Recovery Code",
+  "module": "Moniepoint POS",
+  "autoname": "hash",
+  "engine": "InnoDB",
+  "allow_rename": 0,
+  "field_order": ["user", "code_hash", "batch", "used_at", "revoked"],
+  "fields": [
+    {"fieldname": "user", "fieldtype": "Link", "label": "User", "options": "User", "reqd": 1, "read_only": 1},
+    {"fieldname": "code_hash", "fieldtype": "Data", "label": "Code hash", "reqd": 1, "unique": 1, "read_only": 1, "hidden": 1},
+    {"fieldname": "batch", "fieldtype": "Data", "label": "Batch", "reqd": 1, "read_only": 1},
+    {"fieldname": "used_at", "fieldtype": "Datetime", "label": "Used", "read_only": 1},
+    {"fieldname": "revoked", "fieldtype": "Check", "label": "Replaced", "default": "0", "read_only": 1}
+  ],
+  "permissions": [],
+  "track_changes": 0
+}

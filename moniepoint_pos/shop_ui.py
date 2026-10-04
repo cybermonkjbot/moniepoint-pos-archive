@@ -110,8 +110,8 @@ FORMS["User"] = {
     "hide": [], "labels": {"user_details_tab": "Details", "roles_permissions_tab": "Access",
         "settings_tab": "Password", "section_break_3": "", "first_name": "First name",
         "last_name": "Last name", "enabled": "Active", "sb1": "Access", "mobile_no": "Mobile",
-        "new_password": "New password", "logout_all_sessions": "Sign out other devices"},
-    "defaults": {}, "columns": ["full_name", "email", "enabled"], "filters": ["enabled"],
+        "username": "Username", "new_password": "New password", "logout_all_sessions": "Sign out other devices"},
+    "defaults": {}, "columns": ["full_name", "username", "enabled"], "filters": ["enabled"],
     "keep_id": False, "presentation_only": True,
 }
 
@@ -128,9 +128,9 @@ def presentation_config():
     """Omit tax setup controls, not tax calculations or recorded amounts."""
     import copy
     config = copy.deepcopy(FORMS)
-    user_fields = {"user_details_tab", "enabled", "section_break_3", "email", "first_name", "last_name",
+    user_fields = {"user_details_tab", "enabled", "section_break_3", "username", "first_name", "last_name",
         "column_break0", "column_break_11", "roles_permissions_tab", "sb1", "roles_html", "roles",
-        "phone", "mobile_no", "settings_tab", "change_password", "new_password", "logout_all_sessions"}
+        "phone", "mobile_no", "settings_tab", "change_password"}
     config["User"]["hide"] = [df.fieldname for df in frappe.get_meta("User").fields if df.fieldname not in user_fields]
     purchase_fields = {"supplier", "supplier_name", "posting_date", "due_date", "is_paid", "is_return", "return_against",
         "bill_no", "bill_date", "items", "update_stock", "mode_of_payment", "paid_amount", "grand_total",
@@ -165,6 +165,7 @@ def boot_session(bootinfo):
     bootinfo.k3ls_payment_methods = list(PAYMENT_METHODS)
     bootinfo.k3ls_bank_icons = BANK_ICONS
     bootinfo.k3ls_shop_ui = presentation_config()
+    bootinfo.k3ls_username = "Administrator" if frappe.session.user == "Administrator" else frappe.db.get_value("User", frappe.session.user, "username")
     from moniepoint_pos.list_search import LISTS
     for doctype, search in LISTS.items():
         bootinfo.k3ls_shop_ui[doctype]["search_title"] = search["title"]

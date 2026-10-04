@@ -130,7 +130,11 @@ body.k3ls-login-page {
     border-radius: 10px;
     cursor: pointer;
     color: #586a83;
+    border: 0;
+    background: transparent;
 }
+.k3ls-login-page .k3ls-signin-forms .page-card .password-field input.form-control { padding-left: 16px; }
+.k3ls-login-page .k3ls-form-recovery .form-label { margin-bottom: 0; }
 
 .k3ls-login-page .page-card .forgot-password-message { margin: 4px 0 0; align-self: flex-end; }
 .k3ls-login-page .forgot-password-message a,
