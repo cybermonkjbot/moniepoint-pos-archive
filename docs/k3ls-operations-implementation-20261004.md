@@ -20,14 +20,20 @@ October 4, 2026. This records the source changes following the workbook audit at
 
 The Owner workspace now uses navy backgrounds for its canvas, cards, fields, menus, dialogs, notifications, tables and chart tooltips. Shared pages retain the Owner theme while the Owner sidebar is selected. The Shop workspace stays white with blue highlights. Receipt paper and uploaded images keep their original colours.
 
+Overview now includes product sales and product profit over time, plus the five best-selling products by net pieces sold. The same submitted-sale rows supply the totals and charts. Returns reduce both amounts and pieces. Saved costs include purchase, delivery and fixing costs. Profit is unavailable when a sale has no saved cost. Charts group by day, week or month according to the selected dates and offer dated figures alongside the graph. A period with no product sales shows one empty-state message rather than blank axes.
+
+The stock-intake dialog now keeps its stage fields separate from the layout sections Frappe inserts, preventing the first stage from hiding its own inputs.
+
 ## State of verification
 
-- Source and diffs reviewed. No tests, lint, compilation, builds, new preview servers or package exports were run.
-- Local port 8000 has no listening app. No before/after screenshots or narrow/wide rendered comparisons were possible. UI verification remains incomplete.
-- Product/workflow configuration has not been applied locally. No workbook transactions, opening balances or client records were imported.
+- Source and diffs reviewed. No tests, lint, compilation, builds or package exports were run. The existing local app was started without a build watcher.
+- A database, site-config and uploaded-file backup was saved before configuration, with prefix `20261004_183958-development_localhost-` in the site's private backups folder.
+- Additive product/workflow configuration was applied locally. Readiness reported `ready: true`, 20 workflow types and no missing requirements at schema revision `20261004-9`. No workbook transactions, opening balances or client records were imported, and no stock was posted.
+- Overview was inspected at the existing desktop viewport and 390px mobile width. Navy cards, loading and empty states, date changes and the mobile layout were confirmed. Before/after screenshots show the empty-state refinement. The empty chart axes rendered before being replaced with one message. This site has no submitted product-sale invoices, so populated charts, best-seller links, missing-cost figures and chart tooltips remain unverified in the browser.
+- The receive-stock dialog's first-stage inputs are visible again. Its remaining stages and saving/posting flows still need transactional verification.
 - No remote Windows installation or transactional verification was performed. No update ZIP was generated or sent.
 
-The local additive configuration entry point is `moniepoint_pos.operations_schema.setup`. `moniepoint_pos.operations.configuration_status` reports required workflow metadata and permission readiness. Neither has been executed for this implementation. These checks do not establish that every business flow works.
+The local additive configuration entry point is `moniepoint_pos.operations_schema.setup`. `moniepoint_pos.operations.configuration_status` reports required workflow metadata and permission readiness. Both were executed locally. These checks do not establish that every business flow works.
 
 The v9 Windows updater source carries the new modules and page. It pauses web, scheduler and worker together, saves previous source/settings, configures additive product/workflow metadata, then checks metadata, login and assets. It leaves current Windows users, passwords, recovery codes, database and uploads intact. It does not restore the Mac database. Configuration rollback retains additive metadata and its permissions plus an empty reimbursement account.
 

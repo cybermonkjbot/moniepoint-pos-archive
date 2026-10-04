@@ -76,7 +76,9 @@ frappe.pages["shop-operations"].on_page_load = wrapper => {
             ...(kind === "returns" && field.fieldname === "sale_line" ? {fieldtype: "Select", options: [""]} : {}),
             default: doc ? doc[field.fieldname] : defaults[field.fieldname] ?? (field.fieldtype === "Date" ? frappe.datetime.get_today() : field.default)}));
         // Native dialogs preserve drafts on errors and discard them on cancel.
-        const dialog = new frappe.ui.Dialog({title: __(doc ? "Edit record" : titles[kind]), size: "extra-large", fields,
+        // Frappe inserts layout sections into its fields array. Keep those out of
+        // the intake stage list so hiding later fields cannot hide the whole form.
+        const dialog = new frappe.ui.Dialog({title: __(doc ? "Edit record" : titles[kind]), size: "extra-large", fields: [...fields],
             primary_action_label: __(doc ? "Save" : "Add"), primary_action: async values => {
                 dialog.disable_primary_action();
                 try {

@@ -287,9 +287,28 @@ body.k3ls-shop {
 .k3ls-overview .k3ls-price-card strong {color: var(--k3ls-ink);}
 .k3ls-overview .k3ls-account-summary {cursor: default;}
 .k3ls-overview .k3ls-account-summary:hover {background: var(--card-bg);}
+.k3ls-overview-charts {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;}
+.k3ls-overview-chart-card {min-width: 0; padding: 22px; border: 1px solid var(--k3ls-line); border-radius: 20px; background: var(--k3ls-surface); color: var(--k3ls-ink);}
+.k3ls-overview-chart-card h2 {font-size: 18px; margin-bottom: 8px;}
+.k3ls-overview-chart-card > p {font-size: 14px; margin-bottom: 12px;}
+.k3ls-overview-plot {min-width: 0; min-height: 240px;}
+.k3ls-overview-plot .chart-container {border: 0;}
+.k3ls-overview-best-sellers {grid-column: 1 / -1;}
+.k3ls-overview-chart-card > .k3ls-chart-empty {margin: 16px 0 0; color: var(--k3ls-muted);}
+.k3ls-chart-unavailable {min-height: 180px; display: grid; place-content: center; color: var(--k3ls-muted); text-align: center;}
+.k3ls-chart-figures summary {padding: 10px 0; min-height: 44px; cursor: pointer; color: var(--k3ls-accent);}
+.k3ls-chart-figures summary:focus-visible, .k3ls-best-seller:focus-visible {outline: 2px solid var(--k3ls-accent); outline-offset: 3px; border-radius: 8px;}
+.k3ls-chart-figures .table {font-size: 13px; margin-top: 8px;}
+.k3ls-best-sellers {list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 20px;}
+.k3ls-best-seller {display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; color: var(--k3ls-ink);}
+.k3ls-best-seller-name {overflow-wrap: anywhere;}
+.k3ls-best-seller-track {grid-column: 1 / -1; height: 10px; border-radius: 10px; background: var(--k3ls-soft); overflow: hidden;}
+.k3ls-best-seller-track > span {display: block; height: 100%; border-radius: inherit; background: var(--k3ls-accent);}
 @media (max-width: 768px) {
     .k3ls-overview {padding: 20px 16px; gap: 24px;}
     .k3ls-overview-heading .btn {min-height: 44px;}
+    .k3ls-overview-charts {grid-template-columns: minmax(0, 1fr); gap: 16px;}
+    .k3ls-overview-chart-card {padding: 18px 14px;}
 }
 
 /* Product sales and repair work share shop controls, not a catalogue. */

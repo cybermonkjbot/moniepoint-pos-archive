@@ -8,6 +8,8 @@ This update adds stock intake, piece counts, configurations, stock checks, fixin
 
 Accounts and Profit are now together in `Overview` on the owner's sidebar. Open an account to see its transactions. Use `Dates` to change the profit period. Money owed and Moniepoint settings stay separate.
 
+Overview charts show product sales over time, profit after product costs and fixing costs, and the five best sellers by pieces sold. Dates apply to both the totals and charts. Longer ranges group by week or month. `View figures` shows the exact amounts and dates. Returns reduce the totals. Missing costs leave profit unavailable, and a period without product sales shows one message instead of empty graphs.
+
 `Checkout settings` is no longer in the sidebar. POS still uses the saved checkout configuration and payment methods.
 
 Owner screens use navy backgrounds and light text throughout the workspace, including cards, fields, menus, dialogs, notifications, report tables and chart tooltips. Shop screens keep their white background and blue highlights. Printed receipts keep their paper layout.

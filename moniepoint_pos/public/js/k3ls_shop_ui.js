@@ -3,7 +3,7 @@
     const config = frappe.boot.k3ls_shop_ui;
     if (!config) return;
     // Discard cached page scripts, never draft or business data, after app updates.
-    const revision = "20261004-9";
+    const revision = "20261004-11";
     if (localStorage.getItem("k3ls-page-revision") !== revision) {
         for (const page_name of ["point-of-sale", "shop-repairs", "shop-accounts", "shop-profit", "shop-money-owed", "shop-operations", "permission-manager"]) {
             localStorage.removeItem(`_page:${page_name}`);

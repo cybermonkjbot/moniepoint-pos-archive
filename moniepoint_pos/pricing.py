@@ -1,5 +1,6 @@
 """Owner product prices and accounting profit, using ERPNext's existing records."""
 from decimal import Decimal, InvalidOperation
+from datetime import timedelta
 
 import frappe
 from frappe.utils import getdate, now_datetime, today
@@ -141,12 +142,15 @@ def profit(from_date=None, to_date=None):
     open_pos = frappe.get_list("POS Invoice", filters={"company": COMPANY, "docstatus": 1,
         "consolidated_invoice": ["is", "not set"], "posting_date": ["between", [str(start), str(end)]]},
         fields=["name"], limit_page_length=1)
+    product_sales = product_profit(start, end)
+    charts = product_sales.pop("charts")
     return {"from_date": str(start), "to_date": str(end), "currency": "NGN",
         "income": summary[0]["value"] if has_entries else None,
         "expenses": summary[1]["value"] if has_entries else None,
         "profit": summary[2]["value"] if has_entries else None,
         "has_entries": has_entries, "unclosed_sales": bool(open_pos), "updated_at": now_datetime().isoformat(),
-        "product_sales": product_profit(start, end), "repairs": repair_profit(start, end)}
+        "product_sales": product_sales, "repairs": repair_profit(start, end),
+        "charts": charts}
 
 
 def repair_profit(start, end):
@@ -220,31 +224,77 @@ def product_profit(start, end):
     """Submitted product sales, counted once before and after till consolidation."""
     sales, costs, repairs = Decimal(0), Decimal(0), Decimal(0)
     missing, lines = 0, 0
+    periods, period_for_date, grouping = profit_periods(start, end)
+    products = {}
     for parent, child in (("POS Invoice", "POS Invoice Item"), ("Sales Invoice", "Sales Invoice Item")):
         filters = {"company": COMPANY, "docstatus": 1, "posting_date": ["between", [str(start), str(end)]]}
         if parent == "Sales Invoice":
             filters["is_consolidated"] = 0
-        names = frappe.get_list(parent, filters=filters, pluck="name", limit_page_length=0)
+        invoices = frappe.get_list(parent, filters=filters, fields=["name", "posting_date"], limit_page_length=0)
+        dates = {invoice.name: str(invoice.posting_date) for invoice in invoices}
+        names = list(dates)
         if not names:
             continue
         # Parent IDs have passed permission-aware get_list. Child rows cannot be queried independently.
         for row in frappe.get_all(child, filters={"parent": ["in", names], "parenttype": parent, "docstatus": 1},
-                fields=["item_code", "stock_qty", "base_net_amount", "custom_k3ls_cost_recorded",
+                fields=["parent", "item_code", "item_name", "stock_qty", "base_net_amount", "custom_k3ls_cost_recorded",
                         "custom_k3ls_unit_cost", "custom_k3ls_unit_repair_cost"]):
             if not frappe.get_cached_value("Item", row.item_code, "is_stock_item"):
                 continue
             lines += 1
-            sales += Decimal(str(row.base_net_amount or 0))
+            income = Decimal(str(row.base_net_amount or 0))
+            qty = Decimal(str(row.stock_qty or 0))
+            sales += income
+            period = periods[period_for_date[dates[row.parent]]]
+            period["sales"] += income
+            period["lines"] += 1
+            product = products.setdefault(row.item_code, {"item": row.item_code,
+                "label": row.item_name or row.item_code, "pieces": Decimal(0)})
+            product["pieces"] += qty
             if not row.custom_k3ls_cost_recorded:
                 missing += 1
+                period["missing_cost_lines"] += 1
                 continue
-            qty = Decimal(str(row.stock_qty or 0))
-            costs += qty * Decimal(str(row.custom_k3ls_unit_cost or 0))
+            cost = qty * Decimal(str(row.custom_k3ls_unit_cost or 0))
+            costs += cost
+            period["costs"] += cost
             repairs += qty * Decimal(str(row.custom_k3ls_unit_repair_cost or 0))
+    trend = [{"from_date": period["from_date"], "to_date": period["to_date"],
+        "sales": float(period["sales"]),
+        "profit": None if period["missing_cost_lines"] else float(period["sales"] - period["costs"]),
+        "missing_cost_lines": period["missing_cost_lines"], "has_sales": bool(period["lines"])} for period in periods]
+    best_sellers = sorted((product for product in products.values() if product["pieces"] > 0),
+        key=lambda product: (-product["pieces"], product["item"]))[:5]
+    for product in best_sellers:
+        product["pieces"] = float(product["pieces"])
     return {"income": float(sales) if lines else None,
         "costs": float(costs) if lines and not missing else None,
         "profit": float(sales - costs) if lines and not missing else None,
-        "repair_cost": float(repairs), "missing_cost_lines": missing, "has_sales": bool(lines)}
+        "repair_cost": float(repairs), "missing_cost_lines": missing, "has_sales": bool(lines),
+        "charts": {"grouping": grouping, "trend": trend, "best_sellers": best_sellers,
+            "has_sales": bool(lines), "missing_cost_lines": missing}}
+
+
+def profit_periods(start, end):
+    """Use a readable number of buckets, with exact dates for each point."""
+    span = (end - start).days + 1
+    grouping = "day" if span <= 31 else "week" if span <= 120 else "month"
+    periods, date_index = [], {}
+    cursor = start
+    while cursor <= end:
+        if grouping == "month":
+            next_date = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+        else:
+            next_date = cursor + timedelta(days=1 if grouping == "day" else 7)
+        last = min(next_date - timedelta(days=1), end)
+        period = {"from_date": str(cursor), "to_date": str(last), "sales": Decimal(0),
+            "costs": Decimal(0), "lines": 0, "missing_cost_lines": 0}
+        index = len(periods)
+        periods.append(period)
+        while cursor <= last:
+            date_index[str(cursor)] = index
+            cursor += timedelta(days=1)
+    return periods, date_index, grouping
 
 
 def configure():

@@ -6,11 +6,19 @@ frappe.pages["shop-accounts"].on_page_load = function (wrapper) {
     $("<h2 id='k3ls-overview-profit'></h2>").text(__("Profit")).appendTo(profit_header);
     const dates = $("<button type='button' class='btn btn-default'></button>").text(__("Dates")).appendTo(profit_header);
     const profit = $("<div></div>").appendTo(profit_section);
+    const charts_section = $("<section class='k3ls-overview-section'></section>").attr("aria-label", __("Product performance")).appendTo(overview);
+    const charts = $("<div class='k3ls-overview-charts'></div>").appendTo(charts_section);
     const accounts_section = $("<section class='k3ls-overview-section' aria-labelledby='k3ls-overview-accounts'></section>").appendTo(overview);
     $("<h2 id='k3ls-overview-accounts'></h2>").text(__("Accounts")).appendTo(accounts_section);
     const content = $("<div></div>").appendTo(accounts_section);
     const escape = frappe.utils.escape_html;
     let range = {}, profit_request = 0, accounts_request = 0;
+    let chart_instances = [];
+    const clear_charts = () => {
+        for (const chart of chart_instances) chart.destroy();
+        chart_instances = [];
+        charts.empty();
+    };
     const refresh_accounts = async () => {
         const current = ++accounts_request;
         content.attr("aria-busy", "true");
@@ -46,7 +54,9 @@ frappe.pages["shop-accounts"].on_page_load = function (wrapper) {
     };
     const refresh_profit = async () => {
         const current = ++profit_request;
+        clear_charts();
         frappe.k3ls_loading(profit, "Loading profit");
+        frappe.k3ls_loading(charts, "Loading charts");
         try {
             const {message: data} = await frappe.call({method: "moniepoint_pos.pricing.profit", type: "GET", args: range});
             if (current !== profit_request) return;
@@ -70,21 +80,92 @@ frappe.pages["shop-accounts"].on_page_load = function (wrapper) {
                 .on("click", () => {frappe.route_options = {company: "K3LS LIMITED", filter_based_on: "Date Range",
                     period_start_date: data.from_date, period_end_date: data.to_date, periodicity: "Monthly"};
                     frappe.set_route("query-report", "Profit and Loss Statement");}).appendTo(profit);
+            render_charts(data);
         } catch (error) {
             if (current !== profit_request) return;
+            clear_charts();
             profit.empty().append($("<p role='alert'></p>").text(__("Profit could not load.")));
             $("<button type='button' class='btn btn-default'></button>").text(__("Retry")).on("click", refresh_profit).appendTo(profit);
-        } finally {if (current === profit_request) profit.attr("aria-busy", "false");}
+        } finally {if (current === profit_request) {profit.attr("aria-busy", "false"); charts.attr("aria-busy", "false");}}
     };
     dates.on("click", () => {
         const dialog = new frappe.ui.Dialog({title: __("Dates"), fields: [
             {fieldname: "from_date", fieldtype: "Date", label: __("From"), reqd: 1, default: range.from_date},
             {fieldname: "to_date", fieldtype: "Date", label: __("To"), reqd: 1, default: range.to_date}],
-            primary_action_label: __("Show profit"), primary_action: values => {range = values; dialog.hide(); refresh_profit();}});
+            primary_action_label: __("Apply dates"), primary_action: values => {range = values; dialog.hide(); refresh_profit();}});
         dialog.show();
     });
     wrapper.refresh = () => Promise.all([refresh_profit(), refresh_accounts()]);
     page.set_secondary_action(__("Refresh"), () => wrapper.refresh());
+
+    function render_charts(data) {
+        clear_charts();
+        const trend = data.charts.trend;
+        const crosses_year = data.from_date.slice(0, 4) !== data.to_date.slice(0, 4);
+        const labels = trend.map(point => frappe.datetime.str_to_obj(point.from_date).toLocaleDateString((frappe.boot.lang || "en").replace(/_/g, "-"),
+            {day: "numeric", month: "short", ...(crosses_year ? {year: "2-digit"} : {})}));
+        const exact_dates = trend.map(point => point.from_date === point.to_date
+            ? frappe.datetime.str_to_user(point.from_date)
+            : `${frappe.datetime.str_to_user(point.from_date)} to ${frappe.datetime.str_to_user(point.to_date)}`);
+        const grouping = {day: "Daily product sales", week: "Weekly product sales", month: "Monthly product sales"}[data.charts.grouping];
+        const card = (title, subtitle) => {
+            const section = $("<section class='k3ls-overview-chart-card'></section>").attr("aria-label", __(title)).appendTo(charts);
+            $("<h2></h2>").text(__(title)).appendTo(section);
+            $("<p class='text-muted'></p>").text(subtitle).appendTo(section);
+            return section;
+        };
+        const figures = (parent, title, rows, headings) => {
+            const details = $("<details class='k3ls-chart-figures'></details>").appendTo(parent);
+            $("<summary></summary>").text(__("View figures")).appendTo(details);
+            const table = $("<div class='k3ls-account-transactions'><table class='table'><caption class='sr-only'></caption><thead><tr></tr></thead><tbody></tbody></table></div>").appendTo(details);
+            table.find("caption").text(__(title));
+            for (const heading of headings) $("<th scope='col'></th>").text(__(heading)).appendTo(table.find("thead tr"));
+            for (const values of rows) {
+                const row = $("<tr></tr>").appendTo(table.find("tbody"));
+                for (const value of values) $("<td></td>").text(value).appendTo(row);
+            }
+        };
+        const axis_chart = (parent, title, values, colour, type) => {
+            const plot = $("<div class='k3ls-overview-plot' aria-hidden='true'></div>").appendTo(parent);
+            chart_instances.push(new frappe.Chart(plot[0], {type, height: 240, animate: false, disableEntryAnimation: true,
+                colors: [colour], showLegend: false, data: {labels, datasets: [{name: __(title), values}]},
+                lineOptions: {hideDots: trend.length > 15, regionFill: 1},
+                axisOptions: {xIsSeries: true, shortenYAxisNumbers: true},
+                tooltipOptions: {formatTooltipX: label => escape(exact_dates[labels.indexOf(label)] || label),
+                    formatTooltipY: value => format_currency(value, data.currency)}}));
+            figures(parent, title, trend.map((point, index) => [exact_dates[index], format_currency(values[index], data.currency)]), ["Date", title]);
+        };
+        if (!data.charts.has_sales) {
+            const empty = card("Sales and profit", "").addClass("k3ls-overview-best-sellers");
+            empty.find("p").remove();
+            $("<p class='k3ls-chart-empty' role='status'></p>").text(__("No product sales in this period.")).appendTo(empty);
+            return;
+        }
+        const sales = card("Sales over time", `${__(grouping)} · ${data.currency}`);
+        axis_chart(sales, "Sales", trend.map(point => point.sales), "#84b5ff", "line");
+        const margin = card("Profit over time", `${__("After product costs and repairs")} · ${data.currency}`);
+        if (data.charts.missing_cost_lines) {
+            $("<p class='k3ls-chart-unavailable' role='status'></p>").text(__("Some sales have no saved cost, so profit is unavailable.")).appendTo(margin);
+            figures(margin, "Profit", trend.map((point, index) => [exact_dates[index], point.profit == null ? __("Cost not recorded") : format_currency(point.profit, data.currency)]), ["Date", "Profit"]);
+        } else {
+            axis_chart(margin, "Profit", trend.map(point => point.profit), "#a9ccff", "bar");
+        }
+        const sellers = card("Best sellers", __("Pieces sold, after returns"));
+        sellers.addClass("k3ls-overview-best-sellers");
+        const best = data.charts.best_sellers;
+        if (!best.length) $("<p class='k3ls-chart-unavailable' role='status'></p>").text(__("No products sold in this period.")).appendTo(sellers);
+        else {
+            const list = $("<ol class='k3ls-best-sellers'></ol>").appendTo(sellers);
+            const maximum = Math.max(...best.map(product => product.pieces));
+            for (const product of best) {
+                const row = $("<li></li>").appendTo(list);
+                const link = $("<a class='k3ls-best-seller'></a>").attr("href", `/desk/item/${encodeURIComponent(product.item)}?sidebar=K3LS%20Owner`).appendTo(row);
+                $("<span class='k3ls-best-seller-name'></span>").text(product.label).appendTo(link);
+                $("<strong></strong>").text(__("{0} pieces", [product.pieces])).appendTo(link);
+                $("<span class='k3ls-best-seller-track' aria-hidden='true'><span></span></span>").find("span").css("width", `${product.pieces / maximum * 100}%`).end().appendTo(link);
+            }
+        }
+    }
 
     async function show_transactions(account) {
         const dialog = new frappe.ui.Dialog({title: account.label, size: "large",
