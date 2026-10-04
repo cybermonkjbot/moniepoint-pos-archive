@@ -178,6 +178,12 @@ def boot_session(bootinfo):
         bootinfo.k3ls_purchase_defaults = {"company": profiles[0].company, "set_warehouse": profiles[0].warehouse}
     # Keep all record permissions unchanged. Only filter navigation presented to this site.
     bootinfo.workspace_sidebar_item = {key: value for key, value in bootinfo.workspace_sidebar_item.items() if key in ("k3ls shop", "k3ls owner", "my workspaces")}
+    # Checkout uses the saved profile internally. It is not a shop setup action.
+    for key in ("k3ls shop", "k3ls owner"):
+        sidebar = bootinfo.workspace_sidebar_item.get(key)
+        if sidebar:
+            sidebar["items"] = [item for item in sidebar["items"]
+                if not (item.get("link_type") == "DocType" and item.get("link_to") == "POS Profile")]
     owner = bootinfo.workspace_sidebar_item.get("k3ls owner")
     if owner:
         # Both links are read-only summaries. Keep one existing, permission-

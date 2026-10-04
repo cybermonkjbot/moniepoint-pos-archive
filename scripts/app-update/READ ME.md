@@ -6,7 +6,9 @@ The PowerShell window stays open. Wait for `Update complete`, then refresh the b
 
 This package adds the blue-and-white login design, the supplied shop logo and username-only sign-in. Email is disabled. It adds password-change dialogs, owner password resets and 100 one-use recovery codes per user.
 
-Accounts and Profit are now together in `Overview` on the owner's sidebar. Open an account to see its transactions. Use `Dates` to change the profit period. Money owed and editable settings stay separate.
+Accounts and Profit are now together in `Overview` on the owner's sidebar. Open an account to see its transactions. Use `Dates` to change the profit period. Money owed and Moniepoint settings stay separate.
+
+`Checkout settings` is no longer in the sidebar. POS still uses the saved checkout configuration and payment methods.
 
 It uses the installed WSL environment, needs no downloads and does not reinstall ERPNext. Sales, passwords, accounts and uploads remain in place. It changes login/security settings and assigns usernames to accounts that need them. Existing email reset links are invalidated.
 
