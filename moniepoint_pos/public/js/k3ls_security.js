@@ -16,9 +16,10 @@
     const error_in = (dialog, error) => {
         dialog.fields_dict.error.$wrapper.text(error).attr("role", "alert");
     };
-    const save_password = (user, self) => {
-        const dialog = new frappe.ui.Dialog({title: __(self ? "Change password" : "Reset password"), fields: [
-            {...current_password}, ...password_fields.map(field => ({...field})),
+    const save_password = (user, self, username = user) => {
+        const dialog = new frappe.ui.Dialog({title: self ? __("Change password") : __("Reset password for {0}", [username]), fields: [
+            {...current_password, label: __(self ? "Your current password" : "Your admin password")},
+            ...password_fields.map(field => ({...field})),
             {fieldname: "notice", fieldtype: "HTML", options: `<p>${__("The account will be signed out on all devices.")}</p>`},
             {fieldname: "error", fieldtype: "HTML"},
         ], primary_action_label: __(self ? "Change password" : "Reset password"), primary_action: async values => {
@@ -76,18 +77,32 @@
         clear_secrets(dialog); dialog.show();
     };
     frappe.k3ls_account_security = async (user = frappe.session.user) => {
-        const response = await frappe.call({method: "moniepoint_pos.security.account_security", args: {user}});
-        if (response.exc || !response.message) return;
-        const data = response.message;
         const dialog = new frappe.ui.Dialog({title: __("Password and recovery"), fields: [{fieldname: "actions", fieldtype: "HTML"}]});
         const area = dialog.fields_dict.actions.$wrapper;
-        $("<p></p>").text(data.username).appendTo(area);
-        $("<p></p>").text(__("{0} recovery codes left", [data.remaining])).appendTo(area);
-        $("<button type='button' class='btn btn-primary'></button>").text(__(data.self ? "Change password" : "Reset password"))
-            .on("click", () => {dialog.hide(); save_password(user, data.self);}).appendTo(area);
-        $("<button type='button' class='btn btn-default'></button>").css("margin-left", "12px").text(__("New recovery codes"))
-            .on("click", () => {dialog.hide(); generate_codes(user);}).appendTo(area);
         dialog.show();
+        const load = async () => {
+            area.empty();
+            $("<p role='status'></p>").text(__("Loading…")).appendTo(area);
+            try {
+                const response = await frappe.call({method: "moniepoint_pos.security.account_security", type: "GET", args: {user}});
+                if (response.exc || !response.message) throw new Error("Account security unavailable");
+                const data = response.message;
+                area.empty();
+                $("<p></p>").text(data.username).appendTo(area);
+                $("<p></p>").text(__("{0} recovery codes left", [data.remaining])).appendTo(area);
+                $("<button type='button' class='btn btn-primary'></button>").text(__(data.self ? "Change password" : "Reset password"))
+                    .on("click", () => {dialog.hide(); save_password(user, data.self, data.username);}).appendTo(area);
+                $("<button type='button' class='btn btn-default'></button>").css("margin-left", "12px").text(__("New recovery codes"))
+                    .on("click", () => {dialog.hide(); generate_codes(user);}).appendTo(area);
+            } catch {
+                area.empty();
+                $("<p role='alert'></p>").text(__("Could not open password settings. Check your connection and access."))
+                    .appendTo(area);
+                $("<button type='button' class='btn btn-default'></button>").text(__("Try again"))
+                    .on("click", load).appendTo(area);
+            }
+        };
+        await load();
     };
     frappe.k3ls_new_user = () => {
         const dialog = new frappe.ui.Dialog({title: __("New user"), fields: [
@@ -116,16 +131,20 @@
             frm.page.set_primary_action(__("Add user"), frappe.k3ls_new_user);
             return;
         }
+        const self = frm.doc.name === frappe.session.user;
+        const admin = frappe.session.user === "Administrator" || frappe.user.has_role("System Manager");
+        if (!self && (!admin || frm.doc.name === "Administrator")) return;
+        const reset = () => save_password(frm.doc.name, self, frm.doc.username || frm.doc.name);
+        // Keep password access visible on every tab, independent of the password section.
+        frm.add_custom_button(__(self ? "Change password" : "Reset password"), reset);
         const section = frm.layout.sections_dict.change_password;
         if (!section) return;
         frm.toggle_display("change_password", true);
         section.body.removeClass("hide");
         section.body.find(".k3ls-password-actions").remove();
-        const self = frm.doc.name === frappe.session.user;
-        if (!self && !frappe.user.has_role("System Manager")) return;
         const actions = $("<div class='k3ls-password-actions'></div>").appendTo(section.body);
         $("<button type='button' class='btn btn-primary'></button>").text(__(self ? "Change password" : "Reset password"))
-            .on("click", () => save_password(frm.doc.name, self)).appendTo(actions);
+            .on("click", reset).appendTo(actions);
         $("<button type='button' class='btn btn-default'></button>").css("margin-left", "12px").text(__("Recovery codes"))
             .on("click", () => frappe.k3ls_account_security(frm.doc.name)).appendTo(actions);
     }});

@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 
 BACKUP_ID = '519533ad061c79bde49e2782f63f564952955574aafe832c095d4d93cfb42d30'
-RELEASE = 'K3LS-Shop-Update-20261004-v6'
+RELEASE = 'K3LS-Shop-Update-20261004-v7'
 APP_FILES = (
     'moniepoint_pos/www/__init__.py',
     'moniepoint_pos/www/login.py',
@@ -97,7 +97,7 @@ def main():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
         allowed_before = [before[path]]
-        for previous_release in ('K3LS-Login-Update-20261004-v1', 'K3LS-Account-Update-20261004-v2', 'K3LS-Account-Update-20261004-v3', 'K3LS-Shop-Update-20261004-v4', 'K3LS-Shop-Update-20261004-v5'):
+        for previous_release in ('K3LS-Login-Update-20261004-v1', 'K3LS-Account-Update-20261004-v2', 'K3LS-Account-Update-20261004-v3', 'K3LS-Shop-Update-20261004-v4', 'K3LS-Shop-Update-20261004-v5', 'K3LS-Shop-Update-20261004-v6'):
             previous = output / previous_release / 'payload' / path
             if previous.is_file() and digest(previous) not in allowed_before:
                 allowed_before.append(digest(previous))

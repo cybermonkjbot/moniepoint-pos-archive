@@ -12,6 +12,8 @@ Accounts and Profit are now together in `Overview` on the owner's sidebar. Open 
 
 Owner menus now use the dark-blue background with light text, including `Password and recovery`.
 
+`Password and recovery` now opens with a loading state and offers a retry if it cannot connect. Under `Users`, open a person and choose `Reset password` from any tab. Enter your admin password and their new password. The user's old password and email are not needed. `Guest` is the anonymous account and has no sign-in password.
+
 It uses the installed WSL environment, needs no downloads and does not reinstall ERPNext. Sales, passwords, accounts and uploads remain in place. It changes login/security settings and assigns usernames to accounts that need them. Existing email reset links are invalidated.
 
 After updating, open the account menu and choose `Password and recovery`. Choose `New recovery codes` and save the list. Owners can do the same for staff under `Users` > the person > `Password`. New codes replace the previous unused set. Each code works for that user only and can be used once.
