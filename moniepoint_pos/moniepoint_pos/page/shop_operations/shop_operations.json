@@ -1,0 +1,9 @@
+{
+ "doctype": "Page",
+ "module": "Moniepoint POS",
+ "name": "shop-operations",
+ "page_name": "shop-operations",
+ "roles": [{"role": "System Manager"}, {"role": "Sales User"}, {"role": "K3LS Repair Staff"}],
+ "standard": "Yes",
+ "title": "Shop"
+}

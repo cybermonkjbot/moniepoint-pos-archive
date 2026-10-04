@@ -84,6 +84,8 @@ def bill(doctype, name, write=False):
 
 @frappe.whitelist(methods=["POST"])
 def prepare_payment(doctype, name, amount, mode, modified, expected_outstanding):
+    if frappe.db.get_default("k3ls_operations_revision") == "20261004-9":
+        frappe.throw("Record this payment in Money owed, then verify its evidence in Owner review.")
     # Read current values under the lock, not an older transaction snapshot.
     doc = bill(doctype, name, write=True)
     if str(doc.modified) != str(modified):

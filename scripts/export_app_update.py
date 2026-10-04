@@ -1,4 +1,4 @@
-"""Export a code-only login update for the installed Windows K3LS shop."""
+"""Export a shop-code update for the installed Windows K3LS shop."""
 
 import argparse
 import hashlib
@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 
 BACKUP_ID = '519533ad061c79bde49e2782f63f564952955574aafe832c095d4d93cfb42d30'
-RELEASE = 'K3LS-Shop-Update-20261004-v7'
+RELEASE = 'K3LS-Shop-Update-20261004-v9'
 APP_FILES = (
     'moniepoint_pos/www/__init__.py',
     'moniepoint_pos/www/login.py',
@@ -19,6 +19,22 @@ APP_FILES = (
     'moniepoint_pos/public/js/k3ls_login.js',
     'moniepoint_pos/public/images/k3ls-loading-logo.png',
     'moniepoint_pos/hooks.py',
+    'moniepoint_pos/products.py',
+    'moniepoint_pos/operations.py',
+    'moniepoint_pos/operations_schema.py',
+    'moniepoint_pos/ops_stock.py',
+    'moniepoint_pos/ops_money.py',
+    'moniepoint_pos/ops_cases.py',
+    'moniepoint_pos/ops_sales.py',
+    'moniepoint_pos/repairs.py',
+    'moniepoint_pos/receivables.py',
+    'moniepoint_pos/shop_setup.py',
+    'moniepoint_pos/public/js/k3ls_workflows.js',
+    'moniepoint_pos/pricing.py',
+    'moniepoint_pos/pos.py',
+    'moniepoint_pos/public/js/k3ls_products.js',
+    'moniepoint_pos/public/js/k3ls_prices.js',
+    'moniepoint_pos/public/js/k3ls_pos.js',
     'moniepoint_pos/security.py',
     'moniepoint_pos/user_security.py',
     'moniepoint_pos/shop_ui.py',
@@ -29,6 +45,12 @@ APP_FILES = (
     'moniepoint_pos/public/css/k3ls_shop_ui.css',
     'moniepoint_pos/moniepoint_pos/page/shop_accounts/shop_accounts.js',
     'moniepoint_pos/moniepoint_pos/page/shop_profit/shop_profit.js',
+    'moniepoint_pos/moniepoint_pos/page/shop_repairs/shop_repairs.js',
+    'moniepoint_pos/moniepoint_pos/page/shop_money_owed/shop_money_owed.js',
+    'moniepoint_pos/moniepoint_pos/page/shop_operations/__init__.py',
+    'moniepoint_pos/moniepoint_pos/page/shop_operations/shop_operations.js',
+    'moniepoint_pos/moniepoint_pos/page/shop_operations/shop_operations.json',
+    'moniepoint_pos/moniepoint_pos/doctype/k3ls_repair/k3ls_repair.py',
     'moniepoint_pos/www/update-password.html',
     'moniepoint_pos/www/update_password.py',
     'moniepoint_pos/moniepoint_pos/doctype/k3ls_recovery_code/__init__.py',
@@ -97,7 +119,7 @@ def main():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
         allowed_before = [before[path]]
-        for previous_release in ('K3LS-Login-Update-20261004-v1', 'K3LS-Account-Update-20261004-v2', 'K3LS-Account-Update-20261004-v3', 'K3LS-Shop-Update-20261004-v4', 'K3LS-Shop-Update-20261004-v5', 'K3LS-Shop-Update-20261004-v6'):
+        for previous_release in ('K3LS-Login-Update-20261004-v1', 'K3LS-Account-Update-20261004-v2', 'K3LS-Account-Update-20261004-v3', 'K3LS-Shop-Update-20261004-v4', 'K3LS-Shop-Update-20261004-v5', 'K3LS-Shop-Update-20261004-v6', 'K3LS-Shop-Update-20261004-v7', 'K3LS-Shop-Update-20261004-v8'):
             previous = output / previous_release / 'payload' / path
             if previous.is_file() and digest(previous) not in allowed_before:
                 allowed_before.append(digest(previous))
@@ -107,7 +129,9 @@ def main():
         'release': RELEASE,
         'backup_manifest_sha256': BACKUP_ID,
         'app_versions': versions,
-        'configure_security': True,
+        'configure_security': False,
+        'configure_products': True,
+        'configure_operations': True,
         'changes': changes,
         'files': [
             {'path': path.relative_to(destination).as_posix(), 'bytes': path.stat().st_size, 'sha256': digest(path)}

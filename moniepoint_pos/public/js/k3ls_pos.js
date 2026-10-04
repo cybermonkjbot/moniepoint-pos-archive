@@ -34,7 +34,7 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
 
             make_search_bar() {
                 super.make_search_bar();
-                this.search_field.$input.attr({type: "search", placeholder: __("Search products or scan barcode"), "aria-label": __("Search products")});
+                this.search_field.$input.attr({type: "search", placeholder: __("Search products"), "aria-label": __("Search products")});
                 frappe.k3ls_search_field(this.search_field.$input);
                 this.search_field.$wrapper.find(".tooltip-content").remove();
                 this.$component.find(".item-group-field").hide();
@@ -84,9 +84,9 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
                     if (value != null) button.attr(`data-${key}`, value);
                 }
                 button.html(`<span class="k3ls-product-symbol" aria-hidden="true">${frappe.utils.icon(item.item_code === "K3LS-ITM-0001" ? "laptop" : "package", "lg")}</span>
-                    <strong>${escape(item.item_name)}</strong><small>${escape(item.item_code)}</small>
+                    <strong>${escape(item.item_name)}</strong><small>${escape(item.configuration || item.item_code)}</small>
                     <span class="k3ls-product-price">${escape(priced ? format_currency(item.price_list_rate, item.currency) : __("Price not set"))}</span>
-                    <span class="k3ls-product-stock">${escape(available ? __("{0} in stock", [item.actual_qty]) : __("Out of stock"))}</span>`);
+                    <span class="k3ls-product-stock">${escape(available ? __("{0} pieces", [item.actual_qty]) : __("Out of stock"))}</span>`);
                 if (item.item_image) {
                     let image_url;
                     try {image_url = new URL(item.item_image, window.location.origin);} catch (error) {}
@@ -216,6 +216,28 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
                         this.ask_credit_customer(left);
                         return;
                     }
+                    if (left > 0 && frappe.boot.k3ls_operations_ready && !frappe.user.has_role("System Manager") && !doc.custom_k3ls_credit_approved) {
+                        const request = new frappe.ui.Dialog({title: __("Owner approval"), fields: [{fieldname: "reason", fieldtype: "Small Text", label: __("Payment agreement"), reqd: 1}],
+                            primary_action_label: __("Ask owner"), primary_action: async ({reason}) => {
+                                request.disable_primary_action();
+                                try {
+                                    await this.save_shop_invoice("Save");
+                                    await frappe.call({method: "moniepoint_pos.operations.save", type: "POST", args: {kind: "requests", request_key: window.crypto.randomUUID(),
+                                        values: {request_type: "Credit sale", title: `${doc.customer} · ${format_currency(left, doc.currency)}`, related_doctype: "POS Invoice", related_name: this.frm.doc.name, reason}}});
+                                    request.hide(); frappe.show_alert(__("Sent to owner. The sale remains saved for checkout."));
+                                } finally {request.enable_primary_action();}
+                            }});
+                        request.show(); return;
+                    }
+                    if (frappe.boot.k3ls_operations_ready && (doc.payments || []).some(row => row.mode_of_payment !== "Cash" && flt(row.amount) > 0)) {
+                        submitting = true;
+                        try {
+                            await this.save_shop_invoice("Save");
+                            const {message: checks} = await frappe.call({method: "moniepoint_pos.ops_money.checkout_status", type: "GET", args: {invoice: this.frm.doc.name}});
+                            const unchecked = checks.find(row => row.status !== "Verified");
+                            if (unchecked) {this.check_bank_payment(unchecked); return;}
+                        } finally {submitting = false;}
+                    }
                     const confirm = new frappe.ui.Dialog({title: __(left > 0 ? "Save part-paid sale" : "Finish sale"),
                         fields: [{fieldname: "amounts", fieldtype: "HTML", options: `<p>${escape(__("Received {0}", [format_currency(doc.paid_amount, doc.currency)]))}</p>
                             ${left > 0 ? `<p>${escape(__("{0} owes {1}, due {2}", [doc.customer, format_currency(left, doc.currency), frappe.datetime.str_to_user(doc.due_date)]))}</p>` : ""}
@@ -232,6 +254,27 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
                         }});
                     confirm.show();
                 };
+            }
+
+            check_bank_payment(check) {
+                const waiting = check.status === "Pending";
+                const dialog = new frappe.ui.Dialog({title: __(waiting ? "Waiting for owner" : "Check bank payment"), fields: [
+                    {fieldname: "summary", fieldtype: "HTML", options: `<p>${escape(__(check.method))} · ${escape(format_currency(check.amount, "NGN"))}</p>${waiting ? `<p>${escape(__("The sale is saved. Finish checkout after the owner verifies this payment."))}</p>` : ""},
+                    ...(waiting ? [] : [{fieldname: "bank_reference", fieldtype: "Data", label: __("Bank reference"), reqd: 1},
+                        {fieldname: "evidence", fieldtype: "Attach", label: __("Payment proof"), reqd: 1}])],
+                    primary_action_label: __(waiting ? "Open payment check" : frappe.user.has_role("System Manager") ? "Verify payment" : "Ask owner to verify"),
+                    primary_action: async values => {
+                        if (waiting) {dialog.hide(); frappe.set_route("shop-operations", "receipts", check.receipt); return;}
+                        dialog.disable_primary_action();
+                        try {
+                            const {message: result} = await frappe.call({method: "moniepoint_pos.ops_money.checkout_check", type: "POST", args: {
+                                invoice: this.frm.doc.name, payment: check.payment, ...values}});
+                            dialog.hide();
+                            if (result.status === "Verified") this.payment.events.submit_invoice();
+                            else frappe.show_alert(__("Payment sent to owner. The sale is saved."));
+                        } finally {dialog.enable_primary_action();}
+                    }});
+                dialog.show();
             }
 
             async save_shop_invoice(action) {

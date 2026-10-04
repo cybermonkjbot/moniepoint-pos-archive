@@ -17,7 +17,8 @@ STATUS_ALIASES = {
 }
 
 LISTS = {
-    "Item": {"title": "products", "text": ["name", "item_code", "item_name", "item_group", "custom_k3ls_serial"], "date": "custom_k3ls_acquired_on", "check": "disabled", "invert": True},
+    "Item": {"title": "products", "text": ["name", "item_code", "item_name", "item_group", "custom_k3ls_serial",
+        "custom_k3ls_model", "custom_k3ls_configuration", "custom_k3ls_mode", "custom_k3ls_colour"], "date": "custom_k3ls_acquired_on", "check": "disabled", "invert": True},
     "Customer": {"title": "customers", "text": ["name", "customer_name", "mobile_no", "email_id"], "check": "disabled", "invert": True},
     "Supplier": {"title": "suppliers", "text": ["name", "supplier_name", "mobile_no", "email_id"], "check": "disabled", "invert": True},
     "K3LS Repair": {"title": "repairs", "text": ["name", "customer", "customer_phone", "device", "serial_no"], "date": "received_at", "status": "status"},
@@ -133,6 +134,10 @@ def search():
     if not result:
         result = {"keys": [], "values": [], "user_info": {}}
     result["search_labels"] = labels
+    if frappe.local.form_dict.doctype == "Item" and "name" in result["keys"]:
+        from moniepoint_pos.products import list_stock
+        index = result["keys"].index("name")
+        result["stock_counts"] = list_stock([row[index] for row in result["values"]])
     return result
 
 

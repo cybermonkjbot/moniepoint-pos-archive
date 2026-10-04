@@ -1,4 +1,4 @@
-"""Update app code and account-security settings without restoring shop data."""
+"""Update shop code and additive metadata without restoring live shop data."""
 
 import fcntl
 import hashlib
@@ -59,16 +59,20 @@ def clear_cache():
         '/opt/k3ls/bin/bench', '--site', SITE, 'clear-cache', cwd=BENCH)
 
 
-def security_command(method, *arguments, capture=False):
+def app_command(module, method, *arguments, capture=False):
     args = ['/usr/sbin/runuser', '-u', 'k3ls', '--', '/usr/bin/env',
         'PATH=/opt/k3ls/bin:/opt/k3ls/runtime/node/bin:/usr/bin:/bin',
-        '/opt/k3ls/bin/bench', '--site', SITE, 'execute', 'moniepoint_pos.security.' + method]
+        '/opt/k3ls/bin/bench', '--site', SITE, 'execute', 'moniepoint_pos.' + module + '.' + method]
     if arguments:
         args += ['--args', repr(list(arguments))]
     if capture:
         completed = subprocess.run(args, cwd=BENCH, check=True, capture_output=True, text=True)
         return json.loads(completed.stdout.strip())
     run(*args, cwd=BENCH)
+
+
+def security_command(method, *arguments, capture=False):
+    return app_command('security', method, *arguments, capture=capture)
 
 
 def request(path):
@@ -138,7 +142,7 @@ def apply(package, manifest_hash):
     release = manifest['release']
     if not re.fullmatch(r'[A-Za-z0-9-]{1,80}', release):
         raise RuntimeError('Invalid update name.')
-    # Import only the recovery table. No full migration, dependency install or build.
+    # Apply only the requested additive metadata. No full migration or build.
     if set(manifest['app_versions']) != {'frappe', 'erpnext', 'moniepoint_pos'}:
         raise RuntimeError('The update app versions are incomplete.')
     for app, version in manifest['app_versions'].items():
@@ -193,14 +197,19 @@ def apply(package, manifest_hash):
                 raise RuntimeError('App code changed during preflight.')
         pending = [change for change in changes if change[3] != change[0]['sha256']]
         if not pending:
-            if manifest.get('configure_security'):
-                security_command('configure')
-            clear_cache()
-            run('/usr/bin/systemctl', 'start', 'k3ls-web', 'k3ls-scheduler')
-            run('/usr/bin/systemctl', 'restart', '--no-block', 'k3ls-worker')
-            health(manifest)
-            print('This update is already installed. The login server check passed.', flush=True)
-            return
+            if manifest.get('configure_operations'):
+                status = app_command('operations', 'configuration_status', capture=True)
+                if status.get('ready'):
+                    run('/usr/bin/systemctl', 'start', 'k3ls-web', 'k3ls-scheduler', 'k3ls-worker')
+                    health(manifest)
+                    print('This update is already installed. Configuration and server checks passed.', flush=True)
+                    return
+                print('App files are installed. Finishing the incomplete workflow configuration...', flush=True)
+            else:
+                run('/usr/bin/systemctl', 'start', 'k3ls-web', 'k3ls-scheduler', 'k3ls-worker')
+                health(manifest)
+                print('This update is already installed. The server check passed.', flush=True)
+                return
         saved = Path(tempfile.mkdtemp(prefix=release + '-', dir=saved_root))
         staged = saved / 'incoming'
         originals = saved / 'previous'
@@ -225,12 +234,16 @@ def apply(package, manifest_hash):
                     raise RuntimeError('App code changed while saving the rollback copy.')
         shutil.copy2(manifest_path, saved / 'update-manifest.json')
         print('Old app files saved at ' + str(saved), flush=True)
-        print('Applying the account update. The web server will pause briefly...', flush=True)
+        print('Applying the shop update. The web server will pause briefly...', flush=True)
         applied = []
         configured = False
+        products_configured = False
+        operations_configured = False
         security_snapshot = saved / 'security-before.json'
+        products_snapshot = saved / 'products-before.json'
+        operations_snapshot = saved / 'operations-before.json'
         try:
-            run('/usr/bin/systemctl', 'stop', 'k3ls-web', 'k3ls-scheduler')
+            run('/usr/bin/systemctl', 'stop', 'k3ls-web', 'k3ls-scheduler', 'k3ls-worker')
             for entry, source, target, current in pending:
                 applied.append((entry, target, current))
                 replace_file(staged / entry['path'], target, owner)
@@ -252,12 +265,30 @@ def apply(package, manifest_hash):
                 os.chown(security_snapshot, owner.pw_uid, owner.pw_gid)
                 configured = True
                 security_command('configure')
+            if manifest.get('configure_products'):
+                data = app_command('products', 'configuration_snapshot', capture=True)
+                products_snapshot.write_text(json.dumps(data, indent=2) + '\n')
+                products_snapshot.chmod(0o600)
+                os.chown(saved, owner.pw_uid, owner.pw_gid)
+                os.chown(products_snapshot, owner.pw_uid, owner.pw_gid)
+                products_configured = True
+                app_command('products', 'configure')
+            if manifest.get('configure_operations'):
+                data = app_command('operations', 'configuration_snapshot', capture=True)
+                operations_snapshot.write_text(json.dumps(data, indent=2) + '\n')
+                operations_snapshot.chmod(0o600)
+                os.chown(saved, owner.pw_uid, owner.pw_gid)
+                os.chown(operations_snapshot, owner.pw_uid, owner.pw_gid)
+                operations_configured = True
+                app_command('operations_schema', 'configure')
+                status = app_command('operations', 'configuration_status', capture=True)
+                if not status.get('ready'):
+                    raise RuntimeError('Shop workflow configuration is incomplete.')
             clear_cache()
-            run('/usr/bin/systemctl', 'start', 'k3ls-web', 'k3ls-scheduler')
-            run('/usr/bin/systemctl', 'restart', '--no-block', 'k3ls-worker')
+            run('/usr/bin/systemctl', 'start', 'k3ls-web', 'k3ls-scheduler', 'k3ls-worker')
             health(manifest)
             (saved / 'complete.json').write_text(json.dumps({'release': release, 'manifest_sha256': manifest_hash}, indent=2) + '\n')
-            print('Account update complete. The login and asset checks passed.', flush=True)
+            print('Shop update complete. The login and asset checks passed.', flush=True)
         except BaseException as update_error:
             print('Update failed. Restoring the previous app files...', flush=True)
             rollback_errors = []
@@ -266,9 +297,13 @@ def apply(package, manifest_hash):
                     action()
                 except BaseException as error:
                     rollback_errors.append(label + ': ' + str(error))
-            recover('Pause server', lambda: run('/usr/bin/systemctl', 'stop', 'k3ls-web', 'k3ls-scheduler'))
+            recover('Pause server', lambda: run('/usr/bin/systemctl', 'stop', 'k3ls-web', 'k3ls-scheduler', 'k3ls-worker'))
             if configured:
                 recover('Restore settings', lambda: security_command('restore_security_configuration', str(security_snapshot)))
+            if products_configured:
+                recover('Restore product settings', lambda: app_command('products', 'restore_configuration', str(products_snapshot)))
+            if operations_configured:
+                recover('Restore shop navigation', lambda: app_command('operations', 'restore_configuration', str(operations_snapshot)))
             for entry, target, current in reversed(applied):
                 if current is None:
                     if target.is_file():
@@ -282,8 +317,7 @@ def apply(package, manifest_hash):
                     recover('Remove empty update folder', folder.rmdir)
             # A failed setting or file restore must not prevent service recovery.
             recover('Clear cache', clear_cache)
-            recover('Start server', lambda: run('/usr/bin/systemctl', 'start', 'k3ls-web', 'k3ls-scheduler'))
-            recover('Restart worker', lambda: run('/usr/bin/systemctl', 'restart', '--no-block', 'k3ls-worker'))
+            recover('Start server', lambda: run('/usr/bin/systemctl', 'start', 'k3ls-web', 'k3ls-scheduler', 'k3ls-worker'))
             recover('Server check', health)
             if rollback_errors:
                 raise RuntimeError('Update failed: ' + str(update_error) + '. Recovery needs attention: ' + '; '.join(rollback_errors)) from update_error

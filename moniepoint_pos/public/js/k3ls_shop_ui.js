@@ -3,9 +3,9 @@
     const config = frappe.boot.k3ls_shop_ui;
     if (!config) return;
     // Discard cached page scripts, never draft or business data, after app updates.
-    const revision = "20261004-4";
+    const revision = "20261004-9";
     if (localStorage.getItem("k3ls-page-revision") !== revision) {
-        for (const page_name of ["point-of-sale", "shop-repairs", "shop-accounts", "shop-profit", "shop-money-owed", "permission-manager"]) {
+        for (const page_name of ["point-of-sale", "shop-repairs", "shop-accounts", "shop-profit", "shop-money-owed", "shop-operations", "permission-manager"]) {
             localStorage.removeItem(`_page:${page_name}`);
         }
         localStorage.setItem("k3ls-page-revision", revision);
@@ -186,10 +186,14 @@
     const update_dock = () => {
         const route = frappe.get_route() || [];
         const entity = ["Form", "List", "Tree"].includes(route[0]) ? route[1] : route[0];
-        const shop_screen = Boolean(config[entity] || ["point-of-sale", "shop-repairs", "shop-accounts", "shop-profit", "shop-money-owed", "shop-staff", "permission-manager", "User", "Workspaces", "K3LS Shop", "K3LS Owner"].includes(entity));
+        const sidebar_title = frappe.app?.sidebar?.sidebar_title;
+        const owner_workspace = sidebar_title === "K3LS Owner";
+        const owner_report = ["query-report", "Query Report"].includes(entity) && frappe.user.has_role("System Manager");
+        const shop_screen = Boolean(owner_workspace || owner_report || config[entity] || ["point-of-sale", "shop-repairs", "shop-operations", "shop-accounts", "shop-profit", "shop-money-owed", "shop-staff", "permission-manager", "User", "Workspaces", "K3LS Shop", "K3LS Owner"].includes(entity));
         document.body.classList.toggle("k3ls-app-screen", shop_screen);
         const owner_screen = ["Supplier", "Purchase Invoice", "Payment Entry", "POS Profile", "Account", "shop-accounts", "shop-profit", "shop-money-owed", "shop-staff", "permission-manager", "User", "Moniepoint Settings", "Moniepoint Terminal", "Moniepoint Transaction", "K3LS Owner"]
-            .includes(entity) || (entity === "Workspaces" && route[1] === "K3LS Owner")
+            .includes(entity) || owner_workspace || owner_report || (entity === "Workspaces" && route[1] === "K3LS Owner")
+            || (entity === "shop-operations" && frappe.user.has_role("System Manager"))
             || (["POS Invoice", "Item", "shop-repairs", "K3LS Repair"].includes(entity) && frappe.app?.sidebar?.sidebar_title === "K3LS Owner");
         document.body.classList.toggle("k3ls-owner-screen", owner_screen);
         let shortcut_selected = false;
@@ -491,8 +495,9 @@
                 }
                 if (doctype === "Item") {
                     if (frappe.k3ls_product_prices) frappe.k3ls_product_prices(frm);
+                    if (frappe.k3ls_product_stock) frappe.k3ls_product_stock(frm);
                     for (const name of ["item_code", "stock_uom", "is_stock_item", "has_serial_no", "opening_stock", "valuation_rate", "standard_rate",
-                        "custom_k3ls_purchase_cost", "custom_k3ls_landing_cost"]) {
+                        "custom_k3ls_purchase_cost", "custom_k3ls_landing_cost", "custom_k3ls_repair_cost"]) {
                         set_property(name, "read_only", !reveal && !frm.is_new() ? 1 : frm.k3ls_original_read_only[name] || 0);
                     }
                 }
@@ -831,6 +836,13 @@
         };
         const add_sidebar_item = sidebar.add_item;
         sidebar.add_item = function (container, item, ...args) {
+            if (item.link_type === "Page" && item.link_to === "shop-operations") {
+                const options = typeof item.route_options === "string" ? JSON.parse(item.route_options || "{}") : item.route_options || {};
+                item.onClick = () => {
+                    frappe.route_options = {sidebar: this.sidebar_title};
+                    frappe.set_route("shop-operations", options.section || "intake");
+                };
+            }
             if (item.class?.includes("sidebar-notification")) item.onClick = () => {
                 const dropdown = this.wrapper.find(".dropdown-notifications");
                 dropdown.toggleClass("hidden");
@@ -852,6 +864,7 @@
             if (["POS Invoice", "Sales Invoice"].includes(entity) && frappe.get_route()?.[0] === "Form"
                 && frappe.get_route()?.[2]?.startsWith("new-") && !url_sidebar && !frappe.route_options?.sidebar
                 && frappe.user.has_role("System Manager") && this.all_sidebar_items["k3ls owner"]) return "K3LS Owner";
+            if (entity === "shop-operations") return frappe.user.has_role("System Manager") ? "K3LS Owner" : "K3LS Shop";
             if (["POS Invoice", "Item", "shop-repairs", "K3LS Repair"].includes(entity)
                 && (frappe.route_options?.sidebar || url_sidebar || this.sidebar_title) === "K3LS Owner"
                 && this.all_sidebar_items["k3ls owner"]) return "K3LS Owner";

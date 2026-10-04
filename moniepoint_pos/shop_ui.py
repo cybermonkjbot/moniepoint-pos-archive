@@ -80,8 +80,10 @@ FORMS["Item"]["labels"].update({
     "custom_k3ls_serial": "Serial or IMEI", "custom_k3ls_ownership": "Owner", "custom_k3ls_owner": "Supplier or owner",
     "custom_k3ls_arrival_condition": "Condition when received", "custom_k3ls_final_condition": "Condition now",
     "custom_k3ls_acquired_on": "Date received", "custom_k3ls_acquisition_type": "How received",
+    "custom_k3ls_mode": "Mode", "custom_k3ls_repair_cost": "Repair cost",
 })
-FORMS["Item"]["hide"].extend("item_tax_section_break is_stock_item has_serial_no custom_k3ls_ownership custom_k3ls_owner custom_k3ls_acquisition".split())
+FORMS["Item"]["hide"].extend("item_tax_section_break is_stock_item has_serial_no custom_k3ls_ownership custom_k3ls_owner custom_k3ls_acquisition sb_barcodes barcodes opening_stock valuation_rate stock_levels_section stock_levels_html serial_nos_and_batches".split())
+FORMS["POS Invoice"]["hide"].append("scan_barcode")
 for _doctype in ("Item", "Customer", "Supplier", "Purchase Invoice", "Sales Invoice", "POS Invoice", "Payment Entry"):
     FORMS[_doctype]["hide"].extend(["dashboard_tab", "connections_tab"])
 FORMS["K3LS Repair"]["labels"].update({
@@ -161,6 +163,7 @@ def enabled():
 def boot_session(bootinfo):
     if not enabled():
         return
+    bootinfo.k3ls_operations_ready = frappe.db.get_default("k3ls_operations_revision") == "20261004-9"
     from moniepoint_pos.checkout import PAYMENT_METHODS
     from moniepoint_pos.accounts import BANK_ICONS
     bootinfo.k3ls_payment_methods = list(PAYMENT_METHODS)

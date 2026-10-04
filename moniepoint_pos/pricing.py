@@ -13,7 +13,7 @@ def owner_item(name, write=False, modified=None):
     item = frappe.get_doc("Item", name, for_update=write)
     item.check_permission("write" if write else "read")
     if write and (not modified or str(item.modified) != str(modified)):
-        frappe.throw("These prices changed. Close and reopen Prices before saving.")
+        frappe.throw("This product changed. Close and reopen it before saving.")
     return item
 
 
@@ -49,10 +49,14 @@ def amounts(item, price):
     cost_known = bool(item.get("custom_k3ls_cost_confirmed") or item.get("custom_k3ls_purchase_cost"))
     cost = Decimal(str(item.get("custom_k3ls_purchase_cost") or 0))
     delivery = Decimal(str(item.get("custom_k3ls_landing_cost") or 0))
+    repair = Decimal(str(item.get("custom_k3ls_repair_cost") or 0))
     selling = Decimal(str(price.price_list_rate)) if price else None
-    profit = selling - cost - delivery if selling is not None and cost_known else None
+    total = cost + delivery + repair
+    profit = selling - total if selling is not None and cost_known else None
     return {"cost_known": cost_known, "cost_price": float(cost) if cost_known else None,
-        "delivery_cost": float(delivery), "selling_price": float(selling) if selling is not None else None,
+        "delivery_cost": float(delivery), "repair_cost": float(repair),
+        "total_cost": float(total) if cost_known else None,
+        "selling_price": float(selling) if selling is not None else None,
         "expected_profit": float(profit) if profit is not None else None}
 
 
@@ -61,10 +65,17 @@ def prices(item):
     doc = owner_item(item)
     price_list = shop_price_list()
     price = selling_price(doc, price_list)
+    units = []
+    if doc.has_serial_no and frappe.db.exists("DocType", "K3LS Stock Unit"):
+        for unit in frappe.get_list("K3LS Stock Unit", filters={"item": doc.name, "status": ["in", ["Ready", "Needs inspection"]]},
+            fields=["name", "serial", "status", "purchase_cost", "delivery_cost", "repair_cost", "cost_known"], limit_page_length=100):
+            unit.total_cost = float(unit.purchase_cost + unit.delivery_cost + unit.repair_cost) if unit.cost_known else None
+            unit.profit = float(price.price_list_rate - unit.total_cost) if price and unit.total_cost is not None else None
+            units.append(unit)
     return {"item": doc.name, "modified": str(doc.modified), "currency": "NGN", "unit": doc.stock_uom,
         "price_name": price.name if price else None, "price_modified": str(price.modified) if price else None,
         "can_edit": doc.has_permission("write") and frappe.has_permission("Item Price", "write" if price else "create"),
-        **amounts(doc, price)}
+        "devices": units, **amounts(doc, price)}
 
 
 def money(value, label):
@@ -79,11 +90,12 @@ def money(value, label):
 
 @frappe.whitelist(methods=["POST"])
 def save_prices(item, modified, cost_price, delivery_cost, selling_price_value,
-                price_name=None, price_modified=None):
+                price_name=None, price_modified=None, repair_cost=None):
     doc = owner_item(item, write=True, modified=modified)
     if doc.disabled:
         frappe.throw("This product is stopped. Enable it before changing prices.")
     cost, delivery, sell = money(cost_price, "Cost price"), money(delivery_cost, "Delivery cost"), money(selling_price_value, "Selling price")
+    repair = money((doc.get("custom_k3ls_repair_cost") or 0) if repair_cost is None else repair_cost, "Repair cost")
     if sell <= 0:
         frappe.throw("Selling price must be above zero.")
     price_list = shop_price_list()
@@ -101,6 +113,7 @@ def save_prices(item, modified, cost_price, delivery_cost, selling_price_value,
             "uom": doc.stock_uom, "price_list": price_list, "currency": "NGN", "valid_from": today()})
     doc.custom_k3ls_purchase_cost = float(cost)
     doc.custom_k3ls_landing_cost = float(delivery)
+    doc.custom_k3ls_repair_cost = float(repair)
     doc.custom_k3ls_cost_confirmed = 1
     doc.save()
     price.price_list_rate = float(sell)
@@ -132,7 +145,106 @@ def profit(from_date=None, to_date=None):
         "income": summary[0]["value"] if has_entries else None,
         "expenses": summary[1]["value"] if has_entries else None,
         "profit": summary[2]["value"] if has_entries else None,
-        "has_entries": has_entries, "unclosed_sales": bool(open_pos), "updated_at": now_datetime().isoformat()}
+        "has_entries": has_entries, "unclosed_sales": bool(open_pos), "updated_at": now_datetime().isoformat(),
+        "product_sales": product_profit(start, end), "repairs": repair_profit(start, end)}
+
+
+def repair_profit(start, end):
+    rows = frappe.get_list("K3LS Repair", filters={"status": ["!=", "Cancelled"]},
+        fields=["name", "sales_invoice", "total_cost", "custom_k3ls_cost_bill"], limit_page_length=0)
+    income, cost, count = Decimal(0), Decimal(0), 0
+    for repair in rows:
+        if not repair.sales_invoice:
+            continue
+        bill = frappe.get_doc("Sales Invoice", repair.sales_invoice)
+        if bill.docstatus != 1 or not start <= getdate(bill.posting_date) <= end:
+            continue
+        count += 1
+        income += Decimal(str(bill.base_net_total or 0))
+        cost += Decimal(str(repair.total_cost or 0))
+    return dict(count=count, income=float(income), cost=float(cost), margin=float(income - cost))
+
+
+def snapshot_sale_costs(doc, method=None):
+    """Freeze per-piece costs at submission. Never post a second expense to GL."""
+    if doc.company != COMPANY or (doc.doctype == "Sales Invoice" and doc.is_consolidated):
+        return
+    original = None
+    if doc.is_return and doc.return_against:
+        original = frappe.get_doc(doc.doctype, doc.return_against)
+        if original.company != COMPANY or original.docstatus != 1:
+            frappe.throw("Choose a confirmed sale from this shop to return.")
+    for row in doc.items:
+        row.custom_k3ls_cost_recorded = 0
+        row.custom_k3ls_unit_cost = 0
+        row.custom_k3ls_unit_repair_cost = 0
+        item = frappe.get_cached_doc("Item", row.item_code)
+        if not item.is_stock_item:
+            continue
+        if original:
+            source_name = row.get("pos_invoice_item" if doc.doctype == "POS Invoice" else "sales_invoice_item")
+            candidates = [source for source in original.items if source.item_code == row.item_code
+                and (not source_name or source.name == source_name)]
+            if len(candidates) != 1:
+                frappe.throw("Choose the original sale line for this returned product.")
+            source = candidates[0]
+            for field in ("custom_k3ls_cost_recorded", "custom_k3ls_unit_cost", "custom_k3ls_unit_repair_cost"):
+                row.set(field, source.get(field) or 0)
+        else:
+            data = amounts(item, None)
+            # Current stock valuation is the purchase/delivery cost for pooled
+            # pieces. Device records retain exact acquisition and fixing costs.
+            from moniepoint_pos.products import stock_state
+            from moniepoint_pos.ops_sales import units_for
+            units = units_for(row, item) if frappe.db.exists("DocType", "K3LS Stock Unit") else []
+            if units:
+                data["cost_known"] = len(units) == abs(int(row.stock_qty)) and all(unit.cost_known for unit in units)
+                data["total_cost"] = sum(unit.purchase_cost + unit.delivery_cost + (unit.repair_cost or 0) for unit in units) / len(units)
+                data["repair_cost"] = sum(unit.repair_cost or 0 for unit in units) / len(units)
+            elif row.warehouse:
+                stock = stock_state(item.name, row.warehouse)
+                if stock["valuation_rate"]:
+                    data["cost_known"] = True
+                    data["total_cost"] = stock["valuation_rate"] + data["repair_cost"]
+            if row.get("custom_k3ls_owner_stock"):
+                data["cost_known"] = True
+                data["total_cost"] = row.custom_k3ls_owner_due
+                data["repair_cost"] = 0
+            if data["cost_known"]:
+                row.custom_k3ls_cost_recorded = 1
+                row.custom_k3ls_unit_cost = data["total_cost"]
+                row.custom_k3ls_unit_repair_cost = data["repair_cost"]
+
+
+def product_profit(start, end):
+    """Submitted product sales, counted once before and after till consolidation."""
+    sales, costs, repairs = Decimal(0), Decimal(0), Decimal(0)
+    missing, lines = 0, 0
+    for parent, child in (("POS Invoice", "POS Invoice Item"), ("Sales Invoice", "Sales Invoice Item")):
+        filters = {"company": COMPANY, "docstatus": 1, "posting_date": ["between", [str(start), str(end)]]}
+        if parent == "Sales Invoice":
+            filters["is_consolidated"] = 0
+        names = frappe.get_list(parent, filters=filters, pluck="name", limit_page_length=0)
+        if not names:
+            continue
+        # Parent IDs have passed permission-aware get_list. Child rows cannot be queried independently.
+        for row in frappe.get_all(child, filters={"parent": ["in", names], "parenttype": parent, "docstatus": 1},
+                fields=["item_code", "stock_qty", "base_net_amount", "custom_k3ls_cost_recorded",
+                        "custom_k3ls_unit_cost", "custom_k3ls_unit_repair_cost"]):
+            if not frappe.get_cached_value("Item", row.item_code, "is_stock_item"):
+                continue
+            lines += 1
+            sales += Decimal(str(row.base_net_amount or 0))
+            if not row.custom_k3ls_cost_recorded:
+                missing += 1
+                continue
+            qty = Decimal(str(row.stock_qty or 0))
+            costs += qty * Decimal(str(row.custom_k3ls_unit_cost or 0))
+            repairs += qty * Decimal(str(row.custom_k3ls_unit_repair_cost or 0))
+    return {"income": float(sales) if lines else None,
+        "costs": float(costs) if lines and not missing else None,
+        "profit": float(sales - costs) if lines and not missing else None,
+        "repair_cost": float(repairs), "missing_cost_lines": missing, "has_sales": bool(lines)}
 
 
 def configure():

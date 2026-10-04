@@ -54,14 +54,19 @@ frappe.pages["shop-accounts"].on_page_load = function (wrapper) {
             profit.empty();
             $("<p class='text-muted'></p>").text(`${frappe.datetime.str_to_user(data.from_date)} to ${frappe.datetime.str_to_user(data.to_date)}`).appendTo(profit);
             const cards = $("<div class='k3ls-price-cards'></div>").appendTo(profit);
-            for (const [label, value] of [["Income", data.income], ["Costs and expenses", data.expenses], ["Profit", data.profit]]) {
+            const products = data.product_sales;
+            for (const [label, value] of [["Product sales", products.income], ["Product costs", products.costs], ["Product profit", products.profit]]) {
                 const card = $("<div class='k3ls-price-card'></div>").appendTo(cards);
                 $("<span></span>").text(__(label)).appendTo(card);
-                $("<strong></strong>").text(value === null ? __("No records yet") : format_currency(value, data.currency)).appendTo(card);
+                $("<strong></strong>").text(value === null ? __(products.has_sales ? "Cost not recorded" : "No sales yet") : format_currency(value, data.currency)).appendTo(card);
             }
-            $("<p class='text-muted'></p>").text(__("Based on posted sales, stock costs and expenses, not money collected.")).appendTo(profit);
-            if (data.unclosed_sales) $("<p role='status'></p>").text(__("Close the till to include its unposted sales.")).appendTo(profit);
-            $("<button type='button' class='btn btn-default'></button>").text(__("View breakdown"))
+            $("<p class='text-muted'></p>").text(__("Product costs include purchase, delivery and repairs. Other shop expenses are separate.")).appendTo(profit);
+            if (products.missing_cost_lines) $("<p role='status'></p>").text(__("{0} sale lines have no saved cost. Their profit is unavailable.", [products.missing_cost_lines])).appendTo(profit);
+            if (products.repair_cost) $("<p></p>").text(`${__("Repair costs included")}: ${format_currency(products.repair_cost, data.currency)}`).appendTo(profit);
+            if (data.repairs?.count) $("<p></p>").text(`${__("Customer repair margin")} · ${format_currency(data.repairs.margin, data.currency)}`).appendTo(profit);
+            $("<p></p>").text(`${__("Accounting profit")}: ${data.profit == null ? __("No records yet") : format_currency(data.profit, data.currency)}`).appendTo(profit);
+            if (data.unclosed_sales) $("<p role='status'></p>").text(__("Close the till to include these sales in accounting profit.")).appendTo(profit);
+            $("<button type='button' class='btn btn-default'></button>").text(__("Accounting breakdown"))
                 .on("click", () => {frappe.route_options = {company: "K3LS LIMITED", filter_based_on: "Date Range",
                     period_start_date: data.from_date, period_end_date: data.to_date, periodicity: "Monthly"};
                     frappe.set_route("query-report", "Profit and Loss Statement");}).appendTo(profit);

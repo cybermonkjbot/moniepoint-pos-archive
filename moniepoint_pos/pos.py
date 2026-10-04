@@ -17,6 +17,15 @@ def products(start=0, page_length=40, search_term="", item_group=None, pos_profi
     result = get_items(max(cint(start), 0), min(max(cint(page_length), 1), 100),
         profile.selling_price_list, item_group, profile.name, search_term) or {}
     result["items"] = [item for item in result.get("items", []) if item.get("is_stock_item")]
+    names = [item["item_code"] for item in result["items"]]
+    if names:
+        # Product IDs are constrained by the already-authorized POS profile query.
+        details = {row.name: row for row in frappe.get_all("Item", filters={"name": ["in", names]},
+            fields=["name", "custom_k3ls_model", "custom_k3ls_configuration", "custom_k3ls_mode", "custom_k3ls_colour"])}
+        for item in result["items"]:
+            info = details.get(item["item_code"], {})
+            item["configuration"] = " · ".join(str(info.get(field)) for field in
+                ("custom_k3ls_model", "custom_k3ls_configuration", "custom_k3ls_mode", "custom_k3ls_colour") if info.get(field))
     return result
 
 

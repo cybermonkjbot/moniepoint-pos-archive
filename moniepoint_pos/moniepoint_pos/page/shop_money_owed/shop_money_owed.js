@@ -111,6 +111,10 @@ frappe.pages["shop-money-owed"].on_page_load = function (wrapper) {
     }
 };
 frappe.pages["shop-money-owed"].on_page_show = wrapper => {
+    if (frappe.boot.k3ls_operations_ready) {
+        frappe.set_route("shop-operations", "receivables");
+        return;
+    }
     wrapper.refresh?.();
     const customer = frappe.get_route()[1];
     if (customer) wrapper.show_customer?.(customer);

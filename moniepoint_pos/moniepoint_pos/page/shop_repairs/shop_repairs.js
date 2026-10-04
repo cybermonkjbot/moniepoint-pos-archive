@@ -339,6 +339,8 @@ frappe.pages["shop-repairs"].on_page_load = function (wrapper) {
         if (data.can_bill) {
             add("Price", flt(doc.customer_charge) ? format_currency(doc.customer_charge, doc.currency) : __("Not set"));
             add("Price approved", doc.quote_approved ? __("Yes") : __("No"));
+            add("Shop cost", format_currency(doc.total_cost || 0, doc.currency));
+            add("Repair profit", format_currency((doc.customer_charge || 0) - (doc.total_cost || 0), doc.currency));
             add("Payment", !data.invoice ? __("No invoice yet") : data.invoice.docstatus === 0 ? __("Invoice not confirmed")
                 : data.invoice.docstatus === 2 ? __("Invoice cancelled") : flt(data.invoice.outstanding) > 0
                     ? __("Left to pay {0}", [format_currency(data.invoice.outstanding, data.invoice.currency)]) : __("Paid"));
@@ -349,6 +351,7 @@ frappe.pages["shop-repairs"].on_page_load = function (wrapper) {
         if (data.can_write && !["Collected", "Cancelled"].includes(doc.status)) {
             action("Edit device", () => edit(data, "intake"));
             action("Update work", () => edit(data, "progress"));
+            if (frappe.boot.k3ls_operations_ready) action("Send to repairer", () => frappe.k3ls_workflow_add("movements", {repair: doc.name, quantity: 1, movement_type: "With repairer", serials: doc.serial_no}));
             if (data.can_bill) action("Price and approval", () => edit(data, "price"));
             const next = {Received: ["Start checking", "check"], Diagnosing: ["Ask for approval", "approval"],
                 "Awaiting approval": ["Start repair", "start"], "In repair": ["Mark ready", "ready"],
@@ -382,11 +385,13 @@ frappe.pages["shop-repairs"].on_page_load = function (wrapper) {
             field("intake_evidence", "Device photo", "Attach")
         ] : section === "progress" ? [
             field("assigned_to", "Repairer", "Link", {options: "User"}), field("expected_ready_date", "Ready by", "Date"),
+            field("item", "Shop product", "Link", {options: "Item"}), field("follow_up_date", "Follow up on", "Date"),
             field("diagnosis", "Problem found", "Small Text"), field("work_done", "Work done", "Small Text"),
             field("final_condition", "Condition now", "Small Text"), field("notes", "Notes", "Small Text")
         ] : [field("customer_charge", "Price, NGN", "Currency", {options: "NGN"}),
             field("quote_approved", "Customer approved price", "Check"), field("approval_reference", "Approval reference"),
             field("payment_due_date", "Pay by", "Date"), {fieldtype: "Section Break", label: __("Shop costs")},
+            field("external_repairer", "Repairer supplier", "Link", {options: "Supplier"}), field("agreement_reference", "Payment agreement"),
             field("parts_cost", "Parts, NGN", "Currency", {options: "NGN"}),
             field("labour_cost", "Labour, NGN", "Currency", {options: "NGN"}),
             field("other_cost", "Other costs, NGN", "Currency", {options: "NGN"})];

@@ -11,6 +11,31 @@
     }
 
     if (!frappe.boot.k3ls_shop_ui) return;
+    const products = frappe.listview_settings.Item;
+    if (products && !products.k3ls_stock_list) {
+        products.k3ls_stock_list = true;
+        products.add_fields = [...new Set([...(products.add_fields || []), "custom_k3ls_model", "custom_k3ls_configuration", "custom_k3ls_mode", "is_stock_item"])];
+        const load_products = products.onload;
+        products.onload = function (view) {
+            load_products?.call(this, view);
+            const setup_columns = view.setup_columns;
+            view.setup_columns = function () {
+                setup_columns.call(this);
+                this.columns = this.columns.filter(column => column.type !== "Field");
+                this.columns.push({type: "Field", df: {label: __("Model"), fieldname: "custom_k3ls_model", fieldtype: "Data"}});
+                // No fieldname: the computed stock column must not offer database sorting.
+                this.columns.push({type: "Stock", df: {label: __("In stock")}});
+            };
+            const column_html = view.get_column_html;
+            view.get_column_html = function (column, doc, mobile) {
+                if (column.type !== "Stock") return column_html.call(this, column, doc, mobile);
+                const value = doc.is_stock_item ? this.k3ls_stock_counts?.[doc.name] : null;
+                return `<div class="list-row-col ellipsis k3ls-stock-count">${frappe.utils.escape_html(value == null ? __("Not tracked") : __("{0} pieces", [format_number(value)]))}</div>`;
+            };
+            view.setup_columns();
+            view.render_header(true);
+        };
+    }
     const users = frappe.listview_settings.User;
     if (users && !users.k3ls_user_list) {
         users.k3ls_user_list = true;
@@ -90,7 +115,9 @@
             const prepare = view.prepare_data;
             view.prepare_data = function (response) {
                 const labels = response.message?.search_labels || [];
+                if (doctype === "Item") this.k3ls_stock_counts = response.message?.stock_counts || {};
                 if (response.message) delete response.message.search_labels;
+                if (response.message) delete response.message.stock_counts;
                 detected.text(labels.map(label => __(label)).join(" · ")).prop("hidden", !labels.length);
                 return prepare.call(this, response);
             };

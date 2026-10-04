@@ -142,8 +142,13 @@ def validate_sale(doc, method=None):
         if not frappe.get_cached_value("Item", row.item_code, "is_stock_item"):
             frappe.throw("Use Repairs for repair work. The POS is for products.")
         ownership = frappe.get_cached_value("Item", row.item_code, "custom_k3ls_ownership")
+        item = frappe.get_cached_doc("Item", row.item_code)
+        from moniepoint_pos.ops_sales import units_for
+        if item.get("custom_k3ls_inspection_required") and not units_for(row, item):
+            frappe.throw("Finish this product's inspection before selling it.")
         if ownership in ("Sister Owned", "Third-party Owner"):
-            frappe.throw("This product belongs to someone else. Owner payouts must be set up before it can be sold.")
+            from moniepoint_pos.ops_sales import validate_owner_line
+            validate_owner_line(row, item)
     from frappe.utils import flt, getdate, today
     total = flt(doc.rounded_total) or flt(doc.grand_total)
     if flt(total - flt(doc.paid_amount), doc.precision("grand_total")) > 0:
@@ -151,3 +156,5 @@ def validate_sale(doc, method=None):
             frappe.throw("For part payments, choose the customer and add their phone number.")
         if not doc.due_date or getdate(doc.due_date) < getdate(today()):
             frappe.throw("Choose when the remaining payment is due, today or later.")
+        if "System Manager" not in frappe.get_roles() and not doc.get("custom_k3ls_credit_approved"):
+            frappe.throw("Ask the owner to approve this part-paid sale in Requests.")

@@ -29,6 +29,8 @@ class K3LSRepair(Document):
         old = self.get_doc_before_save()
         if old:
             self.received_by = old.received_by
+            if old.get("custom_k3ls_cost_bill") and any(self.get(key) != old.get(key) for key in ("parts_cost", "labour_cost", "other_cost", "external_repairer")):
+                frappe.throw("The repair cost is already billed. Reverse that bill before changing its costs.")
             if old.status in ("Collected", "Cancelled") and old.status != self.status:
                 frappe.only_for("System Manager")
         if old and old.status != self.status and self.status in ("Collected", "Cancelled"):
@@ -41,6 +43,14 @@ class K3LSRepair(Document):
                 frappe.throw("Choose an invoice linked to this repair.")
             if flt(invoice.grand_total) != flt(self.customer_charge):
                 frappe.throw("The repair price must match the invoice total.")
+        if self.status == "Collected":
+            if frappe.db.exists("DocType", "K3LS Stock Movement") and frappe.db.exists("K3LS Stock Movement", {
+                "repair": self.name, "status": ["in", ["Sent", "Received"]]}):
+                frappe.throw("Record the device's return from its repairer before collection.")
+            if not self.sales_invoice or frappe.get_cached_value("Sales Invoice", self.sales_invoice, "docstatus") != 1:
+                frappe.throw("Confirm the repair bill before collection.")
+            if invoice.outstanding_amount and not self.agreement_reference:
+                frappe.throw("Record the agreed part-payment terms before collection.")
 
     @frappe.whitelist(methods=["POST"])
     def create_invoice(self):

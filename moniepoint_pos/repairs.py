@@ -6,7 +6,7 @@ DOCTYPE = "K3LS Repair"
 STATES = ("Received", "Diagnosing", "Awaiting approval", "In repair", "Ready for collection", "Collected", "Cancelled")
 INTAKE = ("customer", "customer_phone", "customer_address", "relationship", "device", "serial_no",
     "configuration", "colour", "accessories_received", "fault_reported", "arrival_condition", "intake_evidence")
-PROGRESS = ("assigned_to", "expected_ready_date", "diagnosis", "work_done", "final_condition", "notes")
+PROGRESS = ("assigned_to", "expected_ready_date", "diagnosis", "work_done", "final_condition", "notes", "follow_up_date", "item")
 PRICE = ("customer_charge", "quote_approved", "approval_reference", "parts_cost", "labour_cost",
     "other_cost", "payment_due_date", "agreement_reference", "external_repairer")
 
@@ -114,6 +114,8 @@ def advance(name, modified, action, values=None):
         frappe.throw("Reopen the repair to see its next step.")
     if action == "collect":
         frappe.only_for("System Manager")
+        if frappe.db.exists("DocType", "K3LS Stock Movement") and frappe.db.exists("K3LS Stock Movement", {"repair": doc.name, "status": ["in", ["Sent", "Received"]]}):
+            frappe.throw("Record the device's return from its repairer before collection.")
     if action == "approval":
         doc.diagnosis = values.get("diagnosis") or doc.diagnosis
         if not doc.diagnosis:
@@ -134,6 +136,15 @@ def invoice(name, modified):
     frappe.only_for("System Manager")
     doc = load(name, write=True, modified=modified)
     doc.create_invoice()
+    bill = frappe.get_doc("Sales Invoice", doc.sales_invoice)
+    if bill.docstatus == 0:
+        bill.submit()
+    if doc.total_cost and not doc.get("custom_k3ls_cost_bill"):
+        if not doc.external_repairer:
+            frappe.throw("Add the repairer supplier before recording the repair costs.")
+        from moniepoint_pos.ops_money import service_bill
+        doc.custom_k3ls_cost_bill = service_bill(doc.external_repairer, doc.total_cost, "Repair costs " + doc.name).name
+        doc.save()
     return result(doc)
 
 
